@@ -1,0 +1,459 @@
+# PROCONNECT
+
+Plataforma SaaS orientada a la gestión de servicios profesionales.
+
+---
+
+# 🚀 Stack Tecnológico
+
+## Backend
+
+* PHP 8.5
+* Laravel 13
+* PostgreSQL
+* Redis
+* Mailpit
+* Docker Compose
+
+## Arquitectura
+
+* API REST
+* Laravel Actions Pattern
+* Form Requests
+* Json Resources
+* PostgreSQL
+* JWT Authentication
+* Arquitectura modular y escalable
+
+---
+
+# 🐳 Docker
+
+## Levantar todo el entorno
+
+```bash
+docker compose up -d
+```
+
+---
+
+# 🌐 Endpoints Locales
+
+## API
+
+```text
+http://localhost:8000/api/v1/...
+```
+
+**Nota:** Como estamos usando Laravel Sail, este ya expone la app en el puerto 80
+
+```text
+http://localhost:80/api/v1/...
+```
+
+## Mailpit
+
+Interfaz para testing de emails en desarrollo.
+
+```text
+http://localhost:8025
+```
+
+---
+
+# 🧠 Comandos importantes
+
+## Ejecutar comandos Artisan dentro del contenedor
+
+```bash
+docker compose exec proconnect_laravel php artisan ...
+```
+
+Ejemplo:
+
+```bash
+docker compose exec proconnect_laravel php artisan migrate
+```
+
+---
+
+# ⚡ Comandos importantes de Artisan
+
+---
+
+## Levantar aplicación
+
+```bash
+php artisan serve
+```
+
+> Comando para levantar el servidor de Laravel manualmente. En este caso NO es necesario porque estamos usando Sail, y ya al levantar el docker expone el puerto 80 con la app levantada
+
+---
+
+## Migraciones
+
+### Ejecutar migraciones
+
+```bash
+php artisan migrate
+```
+
+Migra todo lo que se encuentra en:
+
+```text
+database/migrations
+```
+
+---
+
+### Reiniciar base de datos completamente
+
+```bash
+php artisan migrate:fresh
+```
+
+* Elimina TODAS las tablas
+* Ejecuta nuevamente todas las migraciones
+
+---
+
+### Migrar + seeders
+
+```bash
+php artisan migrate --seed
+```
+
+* Ejecuta migraciones
+* Alimenta la base de datos con seeders
+
+---
+
+## Seeders
+
+### Ejecutar seeders manualmente
+
+```bash
+php artisan db:seed
+```
+
+---
+
+# 🏗️ Generación de clases
+
+---
+
+## Controllers
+
+```bash
+php artisan make:controller User/UserController --api
+```
+
+Crea un controller API con:
+
+* index
+* store
+* show
+* update
+* destroy
+
+---
+
+## Resources
+
+```bash
+php artisan make:resource User/UserResource
+```
+
+Crea un JsonResource para transformar respuestas JSON.
+
+---
+
+## Models
+
+### Crear modelo
+
+```bash
+php artisan make:model User
+```
+
+---
+
+### Crear modelo + migración
+
+```bash
+php artisan make:model User -m
+```
+
+---
+
+## Migraciones
+
+```bash
+php artisan make:migration create_users_table
+```
+
+> Recomendado usar:
+
+```bash
+php artisan make:model User -m
+```
+
+---
+
+## Rutas
+
+```bash
+php artisan route:list
+```
+
+> Sirve para ver las todas las rutas de la api y su metodo HTTP
+
+## Actions
+
+```bash
+php artisan make:class Actions/User/StoreUserAction
+```
+
+Usaremos el patrón de diseño **Action Pattern**.
+
+---
+
+## Form Requests
+
+```bash
+php artisan make:request User/StoreUserRequest
+```
+
+Las Form Requests permiten:
+
+* Validar requests
+* Centralizar reglas
+* Mantener controllers limpios
+* Evitar lógica de validación repetida
+
+---
+
+# 🧠 Action Pattern
+
+---
+
+## ¿Qué es?
+
+El Action Pattern busca mover la lógica de negocio fuera del controller.
+
+En vez de tener controllers enormes con lógica mezclada:
+
+```php
+public function store(Request $request)
+{
+    // lógica
+}
+```
+
+Creamos clases específicas que representan acciones concretas del dominio:
+
+```php
+CreateUserAction
+StoreBookingAction
+CancelBookingAction
+PurchasePackageAction
+```
+
+---
+
+# ✅ Beneficios
+
+* Controllers más limpios
+* Lógica reutilizable
+* Mejor testing
+* Separación de responsabilidades
+* Código más mantenible
+* Escalabilidad
+
+---
+
+# 📁 Estructura
+
+```text
+app/
+├── Actions/
+│   └── User/
+│       ├── StoreUserAction.php
+│       ├── UpdateUserAction.php
+│       └── ShowUserAction.php
+```
+
+---
+
+# ✅ Ejemplo de Action
+
+```php
+<?php
+
+namespace App\Actions\User;
+
+use App\Http\Requests\User\StoreUserRequest;
+use App\Models\User\User;
+
+class StoreUserAction
+{
+    public function __invoke(StoreUserRequest $request): User
+    {
+        return User::create($request->validated());
+    }
+}
+```
+
+---
+
+# ✅ Uso desde el Controller
+
+```php
+public function store(
+    StoreUserRequest $storeUserRequest,
+    StoreUserAction $storeUserAction
+): JsonResponse
+{
+    $user = $storeUserAction($storeUserRequest);
+
+    return response()->json(
+        [
+            'message' => 'User created successfully',
+            'user' => new UserResource($user),
+        ],
+        Response::HTTP_CREATED
+    );
+}
+```
+
+---
+
+# 🧼 Arquitectura utilizada
+
+```text
+Controller
+→ FormRequest
+→ Action
+→ Model
+→ Resource
+→ JSON Response
+```
+
+---
+
+# 📁 Estructura actual
+
+```text
+app/
+├── Actions/
+├── Http/
+│   ├── Controllers/
+│   ├── Requests/
+│   └── Resources/
+├── Models/
+└── Providers/
+```
+
+---
+
+# 🗄️ Base de Datos
+
+## PostgreSQL
+
+Variables importantes del `.env`:
+
+```env
+DB_CONNECTION=pgsql
+DB_HOST=proconnect_pgsql
+DB_PORT=5432
+DB_DATABASE=proconnect
+DB_USERNAME=sail
+DB_PASSWORD=password
+```
+
+---
+
+# 📬 Mailpit
+
+Configuración:
+
+```env
+MAIL_MAILER=smtp
+MAIL_HOST=proconnect_mailpit
+MAIL_PORT=1025
+MAIL_SCHEME=null
+```
+
+Dashboard:
+
+```text
+http://localhost:8025
+```
+
+---
+
+# 🔥 Redis
+
+Configuración:
+
+```env
+REDIS_CLIENT=phpredis
+REDIS_HOST=proconnect_redis
+REDIS_PORT=6379
+```
+
+---
+
+# 🧪 Filosofía del Proyecto
+
+* Clean code
+* Controllers finos
+* Lógica encapsulada
+* Arquitectura mantenible
+* Evitar overengineering
+* Priorizar velocidad de desarrollo
+* SaaS multiusuario moderno
+* API desacoplada
+* Preparado para escalabilidad futura
+
+---
+
+# 📌 Notas importantes
+
+## UUIDs
+
+A futuro probablemente se migrará a UUIDs para:
+
+* evitar exponer IDs secuenciales
+* mejorar seguridad
+* facilitar APIs públicas
+
+---
+
+## Realtime
+
+La arquitectura está pensada para integrar posteriormente:
+
+* WebSockets
+* Laravel Reverb
+* LiveKit
+* Notificaciones en tiempo real
+
+---
+
+# 📦 Futuras funcionalidades
+
+* Reserva de turnos
+* Agenda avanzada
+* Pagos
+* Videollamadas
+* Paquetes de sesiones
+* OAuth
+* Panel administrativo
+* Multi tenancy lógico
+* Sistema de reviews
+* Recordatorios automáticos
+* Jobs y queues
+
+---
