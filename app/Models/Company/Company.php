@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
@@ -34,7 +36,7 @@ class Company extends Model
         ];
     }
 
-    public function professional()
+    public function professional(): BelongsTo
     {
         return $this->belongsTo(
             ProfessionalProfile::class,
@@ -42,7 +44,7 @@ class Company extends Model
         );
     }
 
-    public function services()
+    public function services() : HasMany
     {
         return $this->hasMany(Service::class);
     }

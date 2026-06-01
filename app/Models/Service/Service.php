@@ -2,12 +2,16 @@
 
 namespace App\Models\Service;
 
+use App\Models\Availability\AvailabilityException;
+use App\Models\Availability\AvailabilityRule;
 use App\Models\Company\Company;
 use App\Models\User\ProfessionalProfile;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
@@ -58,7 +62,7 @@ class Service extends Model
         ];
     }
 
-    public function professional()
+    public function professional(): BelongsTo
     {
         return $this->belongsTo(
             ProfessionalProfile::class,
@@ -66,8 +70,18 @@ class Service extends Model
         );
     }
 
-    public function company()
+    public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
+    }
+
+    public function availabilityRules(): HasMany
+    {
+        return $this->hasMany(AvailabilityRule::class);
+    }
+
+    public function availabilityExceptions(): HasMany
+    {
+        return $this->hasMany(AvailabilityException::class);
     }
 }

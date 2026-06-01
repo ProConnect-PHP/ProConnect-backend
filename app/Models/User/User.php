@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Attributes\Table;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -38,17 +40,17 @@ class User extends Authenticatable implements JWTSubject
         );
     }
 
-    public function professionalProfile()
+    public function professionalProfile() : HasOne
     {
         return $this->hasOne(ProfessionalProfile::class);
     }
 
-    public function contacts()
+    public function contacts() : HasMany
     {
         return $this->hasMany(Contact::class);
     }
 
-    public function refreshTokens()
+    public function refreshTokens() : HasOne
     {
         return $this->hasOne(RefreshToken::class);
     }
