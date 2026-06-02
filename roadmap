@@ -1,0 +1,414 @@
+Roadmap recomendado desde el estado actual
+Estado actual
+✅ Backend Laravel 13
+✅ Auth JWT + Refresh Token
+✅ Professional Profiles
+✅ Companies base
+✅ Services CRUD
+✅ Availability Rules
+✅ Availability Exceptions
+✅ Availability Slot Generator
+✅ Tests backend: 81 tests / 328 assertions
+✅ Frontend Angular 21 + Tailwind encaminado por prompt
+
+Ahora la prioridad debe ser:
+
+1. Public Discovery
+2. Booking Engine
+3. Booking Management
+4. Notifications/Queues
+5. Maps
+6. Reviews
+7. Payments/Packages
+8. Video/WebSockets/Admin
+Fase 4 — Public Discovery / Marketplace
+
+Antes de reservar, el cliente necesita encontrar servicios.
+
+Objetivo
+
+Construir endpoints públicos para listar y filtrar servicios.
+
+Backend
+
+Endpoints sugeridos:
+
+GET /api/v1/public/services
+GET /api/v1/public/services/{service}
+GET /api/v1/public/professionals/{professionalProfile}
+
+Filtros:
+
+search
+modality
+min_price
+max_price
+duration_minutes
+latitude
+longitude
+radius_km
+available_date
+rating_min
+Frontend
+
+Pantallas:
+
+/services
+/services/:id
+/services/:id/availability
+Prioridad
+
+Alta. Esto conecta muy bien con el flujo cliente real:
+
+buscar servicio → ver detalle → ver slots → reservar
+Fase 5 — Bookings Engine
+
+Esta es la fase más importante técnicamente.
+
+Objetivo
+
+Permitir reservar un slot disponible sin doble reserva.
+
+Tabla principal
+bookings
+
+Campos mínimos:
+
+id
+service_id
+professional_id
+client_id
+starts_at
+ends_at
+status
+modality
+price_snapshot
+duration_minutes_snapshot
+cancelled_at
+confirmed_at
+paid_at
+created_at
+updated_at
+deleted_at
+
+Estados:
+
+pending
+confirmed
+paid
+in_progress
+completed
+cancelled
+no_show
+Endpoints
+POST /api/v1/services/{service}/bookings
+GET  /api/v1/bookings/my
+GET  /api/v1/bookings/{booking}
+POST /api/v1/bookings/{booking}/confirm
+POST /api/v1/bookings/{booking}/cancel
+POST /api/v1/bookings/{booking}/reschedule
+Reglas críticas
+- El profesional no puede reservar su propio servicio.
+- El cliente no puede superar max_bookings_per_client.
+- El slot debe existir según availability.
+- El slot no debe estar reservado.
+- Se debe validar service.is_active.
+- Se debe validar starts_at/ends_at del service si existen.
+- Se debe respetar min_reschedule_minutes.
+- La reserva debe crearse dentro de una transacción.
+Concurrencia
+
+Acá no alcanza con validar en PHP. Necesitás:
+
+DB transaction
+lockForUpdate()
+índice/exclusion constraint contra solapamientos
+validación atómica
+
+Para PostgreSQL, lo ideal a mediano plazo es una exclusion constraint con rango temporal por service_id, pero para la entrega se puede arrancar con transacción + lock + query de solapamiento.
+
+Prioridad: máxima.
+
+Fase 6 — Booking Management UI
+
+Después del motor backend, llevarlo al frontend.
+
+Profesional
+
+Pantallas:
+
+/dashboard/bookings
+/dashboard/calendar
+
+Funciones:
+
+- ver reservas entrantes
+- confirmar
+- cancelar
+- marcar no asistida
+- ver agenda diaria/semanal
+Cliente
+
+Pantallas:
+
+/my-bookings
+
+Funciones:
+
+- ver mis turnos
+- cancelar
+- reprogramar
+
+Esto empieza a convertir el sistema en producto usable.
+
+Fase 7 — Emails + Queues + Recordatorios
+
+Esto suma mucho porque está en RNF obligatorios/electivos: notificaciones por email, colas y recordatorios automáticos.
+
+Backend
+
+Implementar:
+
+BookingCreatedMail
+BookingConfirmedMail
+BookingCancelledMail
+BookingReminderMail
+
+Con queues:
+
+Redis
+Jobs
+Laravel Queue Worker
+Scheduler
+
+Eventos:
+
+BookingCreated
+BookingConfirmed
+BookingCancelled
+BookingRescheduled
+
+Jobs:
+
+SendBookingConfirmationEmailJob
+SendBookingReminderJob
+Infra
+
+Agregar worker en Docker Compose:
+
+proconnect_queue
+
+Prioridad: alta, porque suma puntos y demuestra arquitectura real.
+
+Fase 8 — Maps / Geolocation
+
+La letra exige visualización geográfica en mapa.
+
+Backend
+
+Ya tenés en servicios:
+
+latitude
+longitude
+address
+modality
+
+Agregar filtros públicos:
+
+near_lat
+near_lng
+radius_km
+Frontend
+
+Usar Leaflet.
+
+Pantallas:
+
+/services/map
+
+Mostrar:
+
+- servicios presenciales
+- servicios híbridos
+- cards al seleccionar marker
+
+Prioridad: media-alta por obligatoriedad.
+
+Fase 9 — Reviews / Reputation
+
+También es obligatorio en la letra y aparece como CU20-CU22 en tu documento.
+
+Backend
+
+Tablas:
+
+reviews
+review_replies
+
+Reglas:
+
+- Solo puede reseñar un cliente con booking completed.
+- Rating 1..5.
+- El profesional puede responder.
+- El cliente puede editar/eliminar comentario en ventana limitada.
+- No borrar el puntaje si tu caso de uso pide mantenerlo.
+
+Endpoints:
+
+POST /api/v1/bookings/{booking}/review
+PUT  /api/v1/reviews/{review}
+DELETE /api/v1/reviews/{review}
+POST /api/v1/reviews/{review}/replies
+GET /api/v1/services/{service}/reviews
+
+También actualizar:
+
+professional_profiles.avg_rating
+professional_profiles.reviews_count
+
+Prioridad: media-alta.
+
+Fase 10 — Payments simulados / PayPal sandbox
+
+La letra acepta integración con pasarela de pago como electivo y pagos como funcionalidad general.
+
+Para no trabarse, haría primero un Payment Provider simulado.
+
+Backend
+
+Tablas:
+
+payments
+
+Estados:
+
+pending
+approved
+rejected
+refunded
+
+Endpoints:
+
+POST /api/v1/bookings/{booking}/payments
+POST /api/v1/payments/{payment}/simulate-approve
+POST /api/v1/payments/{payment}/simulate-reject
+
+Después se puede cambiar por PayPal sin romper dominio si usás interfaz:
+
+PaymentGatewayContract
+
+Prioridad: media.
+
+Fase 11 — Packages
+
+Los paquetes aparecen fuerte en la visión y los casos CU15-CU18.
+
+Tablas
+packages
+package_items
+package_purchases
+package_session_credits
+
+Flujo:
+
+profesional crea paquete
+cliente compra paquete
+cliente reserva usando créditos
+sistema consume crédito por sesión
+
+Esto tiene bastante complejidad. Lo haría después de bookings + payments base.
+
+Prioridad: media.
+
+Fase 12 — Videollamadas
+
+Obligatorio según la letra.
+
+Backend
+
+Tablas:
+
+video_rooms
+
+Proveedor:
+
+LiveKit
+
+Flujo:
+
+booking confirmed/paid
+llega horario
+se genera room
+cliente y profesional piden token
+LiveKit emite token con permisos
+
+Endpoints:
+
+POST /api/v1/bookings/{booking}/video-room
+GET  /api/v1/bookings/{booking}/video-token
+
+Prioridad: media-alta, pero no antes de tener bookings.
+
+Fase 13 — WebSockets / Realtime
+
+Obligatorio según letra.
+
+Eventos
+BookingCreated
+BookingConfirmed
+BookingCancelled
+BookingRescheduled
+NotificationCreated
+
+Stack:
+
+Laravel Echo
+Reverb o Pusher
+Angular Echo client
+
+Frontend:
+
+notificaciones en topbar
+agenda se actualiza sin refrescar
+
+Prioridad: media-alta.
+
+Fase 14 — Admin Panel
+
+La visión pide panel administrativo.
+
+Backend
+
+Endpoints admin:
+
+GET /api/v1/admin/users
+GET /api/v1/admin/professionals
+GET /api/v1/admin/services
+GET /api/v1/admin/bookings
+GET /api/v1/admin/metrics
+Frontend
+/admin
+/admin/users
+/admin/services
+/admin/bookings
+/admin/metrics
+
+Prioridad: media-baja para producto, pero útil para demo.
+
+Orden recomendado real
+
+Yo seguiría exactamente así:
+
+FASE 4  Public Discovery / Marketplace
+FASE 5  Booking Engine con concurrencia
+FASE 6  Booking UI cliente/profesional
+FASE 7  Emails + Queues + Recordatorios
+FASE 8  Maps / Geolocation
+FASE 9  Reviews
+FASE 10 Payments simulados
+FASE 11 Packages
+FASE 12 Videollamadas LiveKit
+FASE 13 WebSockets / Notifications realtime
+FASE 14 Admin Panel
+FASE 15 CI/CD + Deploy HTTPS
+FASE 16 PWA opcional

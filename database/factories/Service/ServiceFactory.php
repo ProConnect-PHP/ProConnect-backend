@@ -35,4 +35,39 @@ class ServiceFactory extends Factory
             'is_active' => true,
         ];
     }
+
+    public function active(): static
+    {
+        return $this->state(fn () => [
+            'is_active' => true,
+        ]);
+    }
+
+    public function inactive(): static
+    {
+        return $this->state(fn () => [
+            'is_active' => false,
+        ]);
+    }
+
+    public function remote(): static
+    {
+        return $this->state(fn () => [
+            'modality' => 'remota',
+            'link' => 'https://meet.example.test/private-room',
+            'address' => null,
+            'latitude' => null,
+            'longitude' => null,
+        ]);
+    }
+
+    public function inPerson(): static
+    {
+        return $this->state(fn () => [
+            'modality' => 'presencial',
+            'address' => 'Montevideo, Uruguay',
+            'latitude' => -34.9011,
+            'longitude' => -56.1645,
+        ]);
+    }
 }

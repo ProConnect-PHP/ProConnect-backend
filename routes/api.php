@@ -5,12 +5,20 @@ use App\Http\Controllers\Availability\AvailabilityController;
 use App\Http\Controllers\Availability\AvailabilityExceptionController;
 use App\Http\Controllers\Availability\AvailabilityRuleController;
 use App\Http\Controllers\ProfessionalProfile\ProfessionalProfileController;
+use App\Http\Controllers\Public\PublicProfessionalController;
+use App\Http\Controllers\Public\PublicServiceController;
 use App\Http\Controllers\Service\ServiceController;
 use App\Http\Controllers\User\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
     Route::get('/services/{service}/availability', [AvailabilityController::class, 'show']);
+
+    Route::prefix('public')->group(function () {
+        Route::get('/services', [PublicServiceController::class, 'index']);
+        Route::get('/services/{service}', [PublicServiceController::class, 'show']);
+        Route::get('/professionals/{professionalProfile}', [PublicProfessionalController::class, 'show']);
+    });
 
     Route::prefix('auth')->group(function () {
         Route::post('/register', [AuthController::class, 'register']);
