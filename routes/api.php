@@ -4,6 +4,8 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Availability\AvailabilityController;
 use App\Http\Controllers\Availability\AvailabilityExceptionController;
 use App\Http\Controllers\Availability\AvailabilityRuleController;
+use App\Http\Controllers\Booking\BookingController;
+use App\Http\Controllers\Booking\ProfessionalBookingController;
 use App\Http\Controllers\ProfessionalProfile\ProfessionalProfileController;
 use App\Http\Controllers\Public\PublicProfessionalController;
 use App\Http\Controllers\Public\PublicServiceController;
@@ -46,8 +48,17 @@ Route::prefix('v1')->group(function () {
             Route::get('/{service}', [ServiceController::class, 'show']);
             Route::put('/{service}', [ServiceController::class, 'update']);
             Route::delete('/{service}', [ServiceController::class, 'destroy']);
+            Route::post('/{service}/bookings', [BookingController::class, 'store']);
 
         });
+
+        Route::get('/bookings/my', [BookingController::class, 'my']);
+        Route::get('/bookings/{booking}', [BookingController::class, 'show']);
+        Route::post('/bookings/{booking}/cancel', [BookingController::class, 'cancel']);
+        Route::post('/bookings/{booking}/reschedule', [BookingController::class, 'reschedule']);
+
+        Route::get('/professional/bookings', [ProfessionalBookingController::class, 'index']);
+        Route::post('/bookings/{booking}/confirm', [ProfessionalBookingController::class, 'confirm']);
 
         Route::prefix('services/{service}')->group(function () {
             Route::get('/availability-rules', [AvailabilityRuleController::class, 'index']);

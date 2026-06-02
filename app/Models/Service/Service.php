@@ -4,6 +4,7 @@ namespace App\Models\Service;
 
 use App\Models\Availability\AvailabilityException;
 use App\Models\Availability\AvailabilityRule;
+use App\Models\Booking\Booking;
 use App\Models\Company\Company;
 use App\Models\User\ProfessionalProfile;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -83,5 +84,10 @@ class Service extends Model
     public function availabilityExceptions(): HasMany
     {
         return $this->hasMany(AvailabilityException::class);
+    }
+
+    public function bookings(): HasMany
+    {
+        return $this->hasMany(Booking::class);
     }
 }

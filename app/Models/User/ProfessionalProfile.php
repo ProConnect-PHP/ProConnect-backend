@@ -2,6 +2,7 @@
 
 namespace App\Models\User;
 
+use App\Models\Booking\Booking;
 use App\Models\Company\Company;
 use App\Models\Service\Service;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -43,5 +44,10 @@ class ProfessionalProfile extends Model
     public function companies(): HasMany
     {
         return $this->hasMany(Company::class, 'professional_id');
+    }
+
+    public function bookings(): HasMany
+    {
+        return $this->hasMany(Booking::class, 'professional_id');
     }
 }
