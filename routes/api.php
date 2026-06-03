@@ -9,12 +9,17 @@ use App\Http\Controllers\Booking\ProfessionalBookingController;
 use App\Http\Controllers\ProfessionalProfile\ProfessionalProfileController;
 use App\Http\Controllers\Public\PublicProfessionalController;
 use App\Http\Controllers\Public\PublicServiceController;
+use App\Http\Controllers\Review\BookingReviewController;
+use App\Http\Controllers\Review\PublicServiceReviewController;
+use App\Http\Controllers\Review\ReviewController;
+use App\Http\Controllers\Review\ReviewReplyController;
 use App\Http\Controllers\Service\ServiceController;
 use App\Http\Controllers\User\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
     Route::get('/services/{service}/availability', [AvailabilityController::class, 'show']);
+    Route::get('/services/{service}/reviews', [PublicServiceReviewController::class, 'index']);
 
     Route::prefix('public')->group(function () {
         Route::get('/services', [PublicServiceController::class, 'index']);
@@ -54,8 +59,13 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/bookings/my', [BookingController::class, 'my']);
         Route::get('/bookings/{booking}', [BookingController::class, 'show']);
+        Route::post('/bookings/{booking}/review', [BookingReviewController::class, 'store']);
         Route::post('/bookings/{booking}/cancel', [BookingController::class, 'cancel']);
         Route::post('/bookings/{booking}/reschedule', [BookingController::class, 'reschedule']);
+        Route::put('/reviews/{review}', [ReviewController::class, 'update']);
+        Route::delete('/reviews/{review}', [ReviewController::class, 'destroy']);
+        Route::post('/reviews/{review}/replies', [ReviewReplyController::class, 'store']);
+        Route::put('/review-replies/{reply}', [ReviewReplyController::class, 'update']);
 
         Route::get('/professional/bookings', [ProfessionalBookingController::class, 'index']);
         Route::post('/bookings/{booking}/confirm', [ProfessionalBookingController::class, 'confirm']);

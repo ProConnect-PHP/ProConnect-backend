@@ -6,6 +6,7 @@ use App\Models\Availability\AvailabilityException;
 use App\Models\Availability\AvailabilityRule;
 use App\Models\Booking\Booking;
 use App\Models\Company\Company;
+use App\Models\Review\Review;
 use App\Models\User\ProfessionalProfile;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -89,5 +90,10 @@ class Service extends Model
     public function bookings(): HasMany
     {
         return $this->hasMany(Booking::class);
+    }
+
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class);
     }
 }

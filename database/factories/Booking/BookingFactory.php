@@ -72,4 +72,13 @@ class BookingFactory extends Factory
             'cancelled_at' => null,
         ]);
     }
+
+    public function completed(): static
+    {
+        return $this->state(fn () => [
+            'status' => BookingStatus::Completed,
+            'completed_at' => now(),
+            'cancelled_at' => null,
+        ]);
+    }
 }

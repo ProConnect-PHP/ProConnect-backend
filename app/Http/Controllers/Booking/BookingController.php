@@ -67,7 +67,11 @@ class BookingController extends Controller
         return response()->json([
             'message' => 'Reserva cancelada correctamente',
             'booking' => new BookingResource(
-                $action($booking, $request->validated('reason'))
+                $action(
+                    booking: $booking,
+                    actor: auth('user_jwt')->user(),
+                    reason: $request->validated('reason')
+                )
             ),
         ]);
     }
@@ -84,6 +88,7 @@ class BookingController extends Controller
             'booking' => new BookingResource(
                 $action(
                     booking: $booking,
+                    actor: auth('user_jwt')->user(),
                     startsAt: $request->validated('starts_at'),
                     reason: $request->validated('reason')
                 )

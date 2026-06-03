@@ -5,7 +5,9 @@ namespace App\Actions\Booking;
 use App\Actions\Booking\Concerns\ValidatesBookingRules;
 use App\Enums\Booking\BookingStatus;
 use App\Exceptions\ApiException;
+use App\Events\Booking\BookingCancelled;
 use App\Models\Booking\Booking;
+use App\Models\User\User;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -13,9 +15,9 @@ class CancelBookingAction
 {
     use ValidatesBookingRules;
 
-    public function __invoke(Booking $booking, ?string $reason = null): Booking
+    public function __invoke(Booking $booking, User $actor, ?string $reason = null): Booking
     {
-        return DB::transaction(function () use ($booking, $reason) {
+        return DB::transaction(function () use ($booking, $actor, $reason) {
             $booking = Booking::query()
                 ->with('service')
                 ->whereKey($booking->id)
@@ -38,11 +40,17 @@ class CancelBookingAction
                 'cancellation_reason' => $reason,
             ]);
 
-            return $booking->refresh()->load([
+            $booking = $booking->refresh()->load([
                 'service.professional.user',
                 'professional.user',
                 'client',
             ]);
+
+            DB::afterCommit(function () use ($booking, $actor): void {
+                event(new BookingCancelled($booking, $actor));
+            });
+
+            return $booking;
         });
     }
 }

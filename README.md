@@ -457,3 +457,162 @@ La arquitectura está pensada para integrar posteriormente:
 * Jobs y queues
 
 ---
+
+# 📊 Datos Demo
+
+Para desarrollo local, ProConnect incluye un dataset completo de demo que permite probar todas las características sin crear manualmente usuarios, servicios y reservas.
+
+## Cargar datos demo
+
+### Local (sin Docker)
+
+```bash
+php artisan migrate:fresh --seed
+```
+
+### Docker
+
+```bash
+docker compose exec proconnect_laravel php artisan migrate:fresh --seed
+```
+
+### Comando opcional (refresh solo seeders)
+
+```bash
+php artisan demo:refresh
+
+# O con fresh migrations
+php artisan demo:refresh --fresh
+```
+
+## Usuarios demo
+
+| Rol | Email | Contraseña | Nombre |
+|-----|-------|-----------|--------|
+| **Cliente** | `cliente@proconnect.test` | `password123` | Cliente Demo |
+| **Cliente** | `cliente2@proconnect.test` | `password123` | Cliente Secundario |
+| **Cliente** | `cliente3@proconnect.test` | `password123` | Cliente Tercero |
+| **Psicóloga** | `psicologa@proconnect.test` | `password123` | Dra. Valentina Acosta |
+| **Coach** | `coach@proconnect.test` | `password123` | Mateo Ferreira |
+| **Nutricionista** | `nutricionista@proconnect.test` | `password123` | Lucía Benítez |
+| **Consultor** | `consultor@proconnect.test` | `password123` | Santiago Moreira |
+
+## Servicios incluidos
+
+### Psicóloga
+
+- **Consulta psicológica inicial** (Presencial, $1,800)
+  - Punta del Este - Evaluación y diagnóstico
+- **Terapia online individual** (Remota, $1,600)
+  - Sesión flexible por videollamada
+- **Acompañamiento para ansiedad** (Híbrida, $1,900)
+  - Programa especializado de 4 sesiones
+
+### Coach Ejecutivo
+
+- **Sesión de coaching ejecutivo** (Remota, $2,200)
+  - Liderazgo y toma de decisiones
+- **Mentoría de productividad** (Híbrida, $2,000)
+  - Sistemas y hábitos de alto rendimiento
+- **Plan de objetivos trimestral** (Remota, $3,500)
+  - Planificación 90 días
+
+### Nutricionista
+
+- **Consulta nutricional inicial** (Presencial, $1,700)
+  - Montevideo - Evaluación completa
+- **Seguimiento nutricional online** (Remota, $1,200)
+  - Sesión de seguimiento breve
+- **Plan alimentario personalizado** (Híbrida, $2,500)
+  - Plan completo con menú y compras
+
+### Consultor de Negocios
+
+- **Diagnóstico de negocio** (Remota, $3,000)
+  - Análisis estratégico integral
+- **Consultoría para emprendimientos** (Híbrida, $2,800)
+  - Asesoramiento desde idea a Go-to-Market
+- **Revisión de estrategia comercial** (Remota, $3,200)
+  - Plan de crecimiento 12-24 meses
+
+## Datos incluidos
+
+El seeder crea automáticamente:
+
+✅ **7 usuarios** (3 clientes, 4 profesionales)  
+✅ **4 perfiles profesionales** con biografías  
+✅ **4 empresas/consultorios** con información de contacto  
+✅ **13 servicios** (12 activos, 1 inactivo para testing)  
+✅ **Disponibilidad semanal** realista para cada servicio  
+✅ **Excepciones de disponibilidad** (días no disponibles, horarios alternativos)  
+✅ **60+ reservas** distribuidas en todos los estados (pending, confirmed, paid, in_progress, completed, cancelled, no_show)  
+✅ **5+ reviews** para bookings completados  
+✅ **3+ respuestas profesionales** a reviews  
+✅ **Ratings recalculados** automáticamente  
+
+## Validar datos demo
+
+Después de ejecutar `migrate:fresh --seed`:
+
+### Login
+
+```bash
+# Como cliente
+curl -X POST http://localhost:8000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "cliente@proconnect.test",
+    "password": "password123"
+  }'
+
+# Como profesional
+curl -X POST http://localhost:8000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "psicologa@proconnect.test",
+    "password": "password123"
+  }'
+```
+
+### Marketplace
+
+```bash
+# Ver servicios activos (público)
+GET http://localhost:8000/api/v1/public/services
+
+# Detalle de servicio
+GET http://localhost:8000/api/v1/public/services/{service-id}
+```
+
+### Disponibilidad
+
+```bash
+# Ver slots disponibles
+GET http://localhost:8000/api/v1/services/{service-id}/availability?date=2024-01-15
+```
+
+### Reviews
+
+```bash
+# Ver reviews de un servicio
+GET http://localhost:8000/api/v1/services/{service-id}/reviews
+```
+
+## Protección de producción
+
+Los seeders de demo **NO se ejecutarán en producción** por seguridad:
+
+```php
+// DatabaseSeeder.php
+if ($this->app->environment('production')) {
+    return;
+}
+```
+
+Además, puedes desactivar completamente el seeding demo con:
+
+```env
+SEED_DEMO_DATA=false
+```
+
+---

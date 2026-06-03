@@ -4,6 +4,8 @@ namespace App\Models\User;
 
 use App\Models\Booking\Booking;
 use App\Models\Company\Company;
+use App\Models\Review\Review;
+use App\Models\Review\ReviewReply;
 use App\Models\Service\Service;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -14,7 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable('user_id', 'bio', 'avg_rating', 'total_reviews', 'is_verified')]
+#[Fillable('user_id', 'bio', 'avg_rating', 'reviews_count', 'is_verified')]
 #[Hidden('created_at', 'updated_at', 'deleted_at')]
 class ProfessionalProfile extends Model
 {
@@ -49,5 +51,15 @@ class ProfessionalProfile extends Model
     public function bookings(): HasMany
     {
         return $this->hasMany(Booking::class, 'professional_id');
+    }
+
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class, 'professional_id');
+    }
+
+    public function reviewReplies(): HasMany
+    {
+        return $this->hasMany(ReviewReply::class, 'professional_id');
     }
 }

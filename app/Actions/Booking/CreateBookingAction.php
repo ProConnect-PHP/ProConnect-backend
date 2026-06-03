@@ -5,6 +5,7 @@ namespace App\Actions\Booking;
 use App\Actions\Availability\GenerateAvailabilitySlotsAction;
 use App\Actions\Booking\Concerns\ValidatesBookingRules;
 use App\Enums\Booking\BookingStatus;
+use App\Events\Booking\BookingCreated;
 use App\Models\Booking\Booking;
 use App\Models\Service\Service;
 use App\Models\User\User;
@@ -37,7 +38,7 @@ class CreateBookingAction
             $this->ensureMaxBookingsPerClient($service, $client);
             $this->ensureSlotIsNotTaken($service, $startsAt, $endsAt);
 
-            return Booking::create([
+            $booking = Booking::create([
                 'service_id' => $service->id,
                 'professional_id' => $service->professional_id,
                 'client_id' => $client->id,
@@ -48,6 +49,12 @@ class CreateBookingAction
                 'price_snapshot' => $service->price,
                 'duration_minutes_snapshot' => $service->duration_minutes,
             ])->load(['service.professional.user', 'professional.user', 'client']);
+
+            DB::afterCommit(function () use ($booking): void {
+                event(new BookingCreated($booking));
+            });
+
+            return $booking;
         });
     }
 }

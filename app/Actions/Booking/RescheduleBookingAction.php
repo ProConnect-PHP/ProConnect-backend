@@ -6,8 +6,10 @@ use App\Actions\Availability\GenerateAvailabilitySlotsAction;
 use App\Actions\Booking\Concerns\ValidatesBookingRules;
 use App\Enums\Booking\BookingStatus;
 use App\Exceptions\ApiException;
+use App\Events\Booking\BookingRescheduled;
 use App\Models\Booking\Booking;
 use App\Models\Service\Service;
+use App\Models\User\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
@@ -21,9 +23,9 @@ class RescheduleBookingAction
     ) {
     }
 
-    public function __invoke(Booking $booking, string $startsAt, ?string $reason = null): Booking
+    public function __invoke(Booking $booking, User $actor, string $startsAt, ?string $reason = null): Booking
     {
-        return DB::transaction(function () use ($booking, $startsAt, $reason) {
+        return DB::transaction(function () use ($booking, $actor, $startsAt, $reason) {
             $booking = Booking::query()
                 ->with('service')
                 ->whereKey($booking->id)
@@ -60,11 +62,17 @@ class RescheduleBookingAction
                 'reschedule_reason' => $reason,
             ]);
 
-            return $booking->refresh()->load([
+            $booking = $booking->refresh()->load([
                 'service.professional.user',
                 'professional.user',
                 'client',
             ]);
+
+            DB::afterCommit(function () use ($booking, $actor): void {
+                event(new BookingRescheduled($booking, $actor));
+            });
+
+            return $booking;
         });
     }
 }

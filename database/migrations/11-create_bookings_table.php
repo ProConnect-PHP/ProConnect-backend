@@ -33,6 +33,7 @@ return new class extends Migration
             $table->decimal('price_snapshot', 10, 2);
             $table->unsignedInteger('duration_minutes_snapshot');
 
+            $table->timestamp('reminder_sent_at')->nullable();
             $table->timestamp('confirmed_at')->nullable();
             $table->timestamp('cancelled_at')->nullable();
             $table->timestamp('paid_at')->nullable();
@@ -44,7 +45,6 @@ return new class extends Migration
 
             $table->timestamps();
             $table->softDeletes();
-
             $table->index(['service_id', 'starts_at', 'ends_at']);
             $table->index(['professional_id', 'starts_at']);
             $table->index(['client_id', 'starts_at']);

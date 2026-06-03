@@ -3,6 +3,7 @@
 namespace App\Models\Booking;
 
 use App\Enums\Booking\BookingStatus;
+use App\Models\Review\Review;
 use App\Models\Service\Service;
 use App\Models\User\ProfessionalProfile;
 use App\Models\User\User;
@@ -11,6 +12,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
@@ -28,6 +30,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'paid_at',
     'completed_at',
     'no_show_at',
+    'reminder_sent_at',
     'cancellation_reason',
     'reschedule_reason',
 ])]
@@ -52,6 +55,7 @@ class Booking extends Model
             'paid_at' => 'datetime',
             'completed_at' => 'datetime',
             'no_show_at' => 'datetime',
+            'reminder_sent_at' => 'datetime',
         ];
     }
 
@@ -68,6 +72,11 @@ class Booking extends Model
     public function client(): BelongsTo
     {
         return $this->belongsTo(User::class, 'client_id');
+    }
+
+    public function review(): HasOne
+    {
+        return $this->hasOne(Review::class);
     }
 
     public function isCancellable(): bool

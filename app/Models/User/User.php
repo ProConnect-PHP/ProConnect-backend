@@ -2,10 +2,10 @@
 
 namespace App\Models\User;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 
 use App\Models\Booking\Booking;
 use App\Models\Contact\Contact;
+use App\Models\Review\Review;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Attributes\Table;
@@ -59,6 +59,11 @@ class User extends Authenticatable implements JWTSubject
     public function bookings() : HasMany
     {
         return $this->hasMany(Booking::class, 'client_id');
+    }
+
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class, 'client_id');
     }
 
     public function getJWTIdentifier(): mixed

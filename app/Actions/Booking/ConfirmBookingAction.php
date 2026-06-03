@@ -4,6 +4,7 @@ namespace App\Actions\Booking;
 
 use App\Enums\Booking\BookingStatus;
 use App\Exceptions\ApiException;
+use App\Events\Booking\BookingConfirmed;
 use App\Models\Booking\Booking;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
@@ -31,11 +32,17 @@ class ConfirmBookingAction
                 'confirmed_at' => now(),
             ]);
 
-            return $booking->refresh()->load([
+            $booking = $booking->refresh()->load([
                 'service',
                 'professional.user',
                 'client',
             ]);
+
+            DB::afterCommit(function () use ($booking): void {
+                event(new BookingConfirmed($booking));
+            });
+
+            return $booking;
         });
     }
 }
