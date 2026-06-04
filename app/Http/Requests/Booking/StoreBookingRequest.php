@@ -15,6 +15,7 @@ class StoreBookingRequest extends FormRequest
     {
         return [
             'starts_at' => ['required', 'date', 'after:now'],
+            'client_package_id' => ['nullable', 'uuid', 'exists:client_packages,id'],
         ];
     }
 }

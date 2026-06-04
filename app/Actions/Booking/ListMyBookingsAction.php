@@ -11,7 +11,7 @@ class ListMyBookingsAction
     public function __invoke(User $user): Collection
     {
         return Booking::query()
-            ->with(['service.professional.user', 'professional.user', 'payment'])
+            ->with(['service.professional.user', 'professional.user', 'payment', 'clientPackage', 'packageSession'])
             ->where('client_id', $user->id)
             ->latest('starts_at')
             ->get();

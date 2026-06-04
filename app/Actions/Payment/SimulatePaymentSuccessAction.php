@@ -18,7 +18,7 @@ class SimulatePaymentSuccessAction
 {
     public function __invoke(PaymentIntent $paymentIntent, User $client): Payment
     {
-        return DB::transaction(function () use ($paymentIntent, $client) {
+        $result = DB::transaction(function () use ($paymentIntent, $client) {
             $paymentIntent = PaymentIntent::query()
                 ->with(['booking', 'payment'])
                 ->whereKey($paymentIntent->id)
@@ -57,11 +57,7 @@ class SimulatePaymentSuccessAction
                     ]);
                 }
 
-                throw new ApiException(
-                    error: 'PaymentIntentExpired',
-                    message: 'El intento de pago expiro.',
-                    status: Response::HTTP_CONFLICT
-                );
+                return PaymentIntentStatus::Expired;
             }
 
             if (! in_array($paymentIntent->status, [
@@ -132,5 +128,15 @@ class SimulatePaymentSuccessAction
 
             return $payment;
         });
+
+        if ($result === PaymentIntentStatus::Expired) {
+            throw new ApiException(
+                error: 'PaymentIntentExpired',
+                message: 'El intento de pago expiro.',
+                status: Response::HTTP_CONFLICT
+            );
+        }
+
+        return $result;
     }
 }

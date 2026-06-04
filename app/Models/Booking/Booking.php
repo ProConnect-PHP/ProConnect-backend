@@ -3,6 +3,8 @@
 namespace App\Models\Booking;
 
 use App\Enums\Booking\BookingStatus;
+use App\Models\Package\ClientPackage;
+use App\Models\Package\PackageSession;
 use App\Models\Payment\Payment;
 use App\Models\Payment\PaymentIntent;
 use App\Models\Review\Review;
@@ -22,6 +24,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'service_id',
     'professional_id',
     'client_id',
+    'client_package_id',
     'starts_at',
     'ends_at',
     'status',
@@ -77,9 +80,19 @@ class Booking extends Model
         return $this->belongsTo(User::class, 'client_id');
     }
 
+    public function clientPackage(): BelongsTo
+    {
+        return $this->belongsTo(ClientPackage::class);
+    }
+
     public function review(): HasOne
     {
         return $this->hasOne(Review::class);
+    }
+
+    public function packageSession(): HasOne
+    {
+        return $this->hasOne(PackageSession::class);
     }
 
     public function paymentIntents(): HasMany

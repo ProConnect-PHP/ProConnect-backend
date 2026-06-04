@@ -4,6 +4,9 @@ namespace App\Models\User;
 
 use App\Models\Booking\Booking;
 use App\Models\Company\Company;
+use App\Models\Package\ClientPackage;
+use App\Models\Package\PackageProduct;
+use App\Models\Package\PackageSession;
 use App\Models\Payment\Payment;
 use App\Models\Payment\PaymentIntent;
 use App\Models\Review\Review;
@@ -53,6 +56,21 @@ class ProfessionalProfile extends Model
     public function bookings(): HasMany
     {
         return $this->hasMany(Booking::class, 'professional_id');
+    }
+
+    public function packageProducts(): HasMany
+    {
+        return $this->hasMany(PackageProduct::class, 'professional_id');
+    }
+
+    public function soldPackages(): HasMany
+    {
+        return $this->hasMany(ClientPackage::class, 'professional_id');
+    }
+
+    public function packageSessions(): HasMany
+    {
+        return $this->hasMany(PackageSession::class, 'professional_id');
     }
 
     public function reviews(): HasMany

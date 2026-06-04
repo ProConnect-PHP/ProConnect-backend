@@ -6,6 +6,11 @@ use App\Http\Controllers\Availability\AvailabilityExceptionController;
 use App\Http\Controllers\Availability\AvailabilityRuleController;
 use App\Http\Controllers\Booking\BookingController;
 use App\Http\Controllers\Booking\ProfessionalBookingController;
+use App\Http\Controllers\Package\MyClientPackageController;
+use App\Http\Controllers\Package\PackagePurchaseController;
+use App\Http\Controllers\Package\ProfessionalPackageProductController;
+use App\Http\Controllers\Package\ProfessionalSoldPackageController;
+use App\Http\Controllers\Package\PublicPackageProductController;
 use App\Http\Controllers\Payment\BookingPaymentIntentController;
 use App\Http\Controllers\Payment\ClientPaymentController;
 use App\Http\Controllers\Payment\PaymentSimulationController;
@@ -24,11 +29,14 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->group(function () {
     Route::get('/services/{service}/availability', [AvailabilityController::class, 'show']);
     Route::get('/services/{service}/reviews', [PublicServiceReviewController::class, 'index']);
+    Route::get('/services/{service}/package-products', [PublicPackageProductController::class, 'byService']);
 
     Route::prefix('public')->group(function () {
         Route::get('/services', [PublicServiceController::class, 'index']);
         Route::get('/services/{service}', [PublicServiceController::class, 'show']);
         Route::get('/professionals/{professionalProfile}', [PublicProfessionalController::class, 'show']);
+        Route::get('/package-products', [PublicPackageProductController::class, 'index']);
+        Route::get('/package-products/{packageProduct}', [PublicPackageProductController::class, 'show']);
     });
 
     Route::prefix('auth')->group(function () {
@@ -70,6 +78,9 @@ Route::prefix('v1')->group(function () {
         Route::post('/payment-intents/{paymentIntent}/simulate-success', [PaymentSimulationController::class, 'success']);
         Route::post('/payment-intents/{paymentIntent}/simulate-failure', [PaymentSimulationController::class, 'failure']);
         Route::get('/payments/my', [ClientPaymentController::class, 'index']);
+        Route::post('/package-products/{packageProduct}/purchase', [PackagePurchaseController::class, 'store']);
+        Route::get('/client-packages/my', [MyClientPackageController::class, 'index']);
+        Route::get('/client-packages/{clientPackage}', [MyClientPackageController::class, 'show']);
         Route::put('/reviews/{review}', [ReviewController::class, 'update']);
         Route::delete('/reviews/{review}', [ReviewController::class, 'destroy']);
         Route::post('/reviews/{review}/replies', [ReviewReplyController::class, 'store']);
@@ -77,6 +88,13 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/professional/bookings', [ProfessionalBookingController::class, 'index']);
         Route::get('/professional/payments', [ProfessionalPaymentController::class, 'index']);
+        Route::get('/professional/package-products', [ProfessionalPackageProductController::class, 'index']);
+        Route::post('/professional/package-products', [ProfessionalPackageProductController::class, 'store']);
+        Route::get('/professional/package-products/{packageProduct}', [ProfessionalPackageProductController::class, 'show']);
+        Route::put('/professional/package-products/{packageProduct}', [ProfessionalPackageProductController::class, 'update']);
+        Route::delete('/professional/package-products/{packageProduct}', [ProfessionalPackageProductController::class, 'destroy']);
+        Route::get('/professional/client-packages', [ProfessionalSoldPackageController::class, 'index']);
+        Route::get('/professional/client-packages/{clientPackage}', [ProfessionalSoldPackageController::class, 'show']);
         Route::post('/bookings/{booking}/confirm', [ProfessionalBookingController::class, 'confirm']);
 
         Route::prefix('services/{service}')->group(function () {

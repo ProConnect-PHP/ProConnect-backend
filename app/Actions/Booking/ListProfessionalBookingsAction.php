@@ -11,7 +11,7 @@ class ListProfessionalBookingsAction
     public function __invoke(ProfessionalProfile $professionalProfile): Collection
     {
         return Booking::query()
-            ->with(['service', 'client', 'payment'])
+            ->with(['service', 'client', 'payment', 'clientPackage', 'packageSession'])
             ->where('professional_id', $professionalProfile->id)
             ->latest('starts_at')
             ->get();

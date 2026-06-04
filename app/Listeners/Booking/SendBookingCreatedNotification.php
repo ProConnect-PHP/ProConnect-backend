@@ -19,7 +19,12 @@ class SendBookingCreatedNotification implements ShouldQueue
             'service',
             'professional.user',
             'client',
+            'clientPackage',
         ]);
+
+        if ($booking->client_package_id !== null) {
+            return;
+        }
 
         $queueEmail = app(QueueBookingEmailNotificationAction::class);
 

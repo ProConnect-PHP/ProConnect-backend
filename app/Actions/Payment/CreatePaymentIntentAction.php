@@ -48,6 +48,14 @@ class CreatePaymentIntentAction
                 );
             }
 
+            if ($booking->client_package_id !== null) {
+                throw new ApiException(
+                    error: 'BookingNotPayable',
+                    message: 'Esta reserva esta cubierta por un paquete.',
+                    status: Response::HTTP_CONFLICT
+                );
+            }
+
             $existingIntent = $booking->paymentIntents()
                 ->whereIn('status', [
                     PaymentIntentStatus::Pending->value,

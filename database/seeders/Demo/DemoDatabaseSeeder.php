@@ -15,9 +15,10 @@ use Illuminate\Database\Seeder;
  * 5. Availability Rules
  * 6. Availability Exceptions
  * 7. Bookings
- * 8. Payments
- * 9. Reviews
- * 10. Review Replies
+ * 8. Packages
+ * 9. Payments
+ * 10. Reviews
+ * 11. Review Replies
  */
 class DemoDatabaseSeeder extends Seeder
 {
@@ -34,6 +35,7 @@ class DemoDatabaseSeeder extends Seeder
             DemoServiceSeeder::class,
             DemoAvailabilitySeeder::class,
             DemoBookingSeeder::class,
+            DemoPackageSeeder::class,
             DemoPaymentSeeder::class,
             DemoReviewSeeder::class,
         ]);

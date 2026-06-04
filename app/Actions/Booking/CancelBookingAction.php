@@ -3,6 +3,7 @@
 namespace App\Actions\Booking;
 
 use App\Actions\Booking\Concerns\ValidatesBookingRules;
+use App\Actions\Package\ReleasePackageSessionAction;
 use App\Enums\Booking\BookingStatus;
 use App\Exceptions\ApiException;
 use App\Events\Booking\BookingCancelled;
@@ -14,6 +15,11 @@ use Symfony\Component\HttpFoundation\Response;
 class CancelBookingAction
 {
     use ValidatesBookingRules;
+
+    public function __construct(
+        private readonly ReleasePackageSessionAction $releasePackageSession
+    ) {
+    }
 
     public function __invoke(Booking $booking, User $actor, ?string $reason = null): Booking
     {
@@ -40,10 +46,14 @@ class CancelBookingAction
                 'cancellation_reason' => $reason,
             ]);
 
+            ($this->releasePackageSession)($booking);
+
             $booking = $booking->refresh()->load([
                 'service.professional.user',
                 'professional.user',
                 'client',
+                'clientPackage.packageProduct',
+                'packageSession',
             ]);
 
             DB::afterCommit(function () use ($booking, $actor): void {

@@ -5,6 +5,8 @@ namespace App\Models\User;
 
 use App\Models\Booking\Booking;
 use App\Models\Contact\Contact;
+use App\Models\Package\ClientPackage;
+use App\Models\Package\PackageSession;
 use App\Models\Payment\Payment;
 use App\Models\Payment\PaymentIntent;
 use App\Models\Review\Review;
@@ -76,6 +78,16 @@ class User extends Authenticatable implements JWTSubject
     public function payments(): HasMany
     {
         return $this->hasMany(Payment::class, 'client_id');
+    }
+
+    public function clientPackages(): HasMany
+    {
+        return $this->hasMany(ClientPackage::class, 'client_id');
+    }
+
+    public function packageSessions(): HasMany
+    {
+        return $this->hasMany(PackageSession::class, 'client_id');
     }
 
     public function getJWTIdentifier(): mixed

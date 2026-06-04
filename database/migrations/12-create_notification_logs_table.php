@@ -20,6 +20,17 @@ return new class extends Migration
                 ->nullable()
                 ->constrained('bookings')
                 ->nullOnDelete();
+            $table->foreignUuid('client_package_id')
+                ->nullable()
+                ->after('booking_id')
+                ->constrained('client_packages')
+                ->cascadeOnDelete();
+
+            $table->foreignUuid('package_session_id')
+                ->nullable()
+                ->after('client_package_id')
+                ->constrained('package_sessions')
+                ->cascadeOnDelete();
 
             $table->string('channel');
             $table->string('type');
@@ -30,6 +41,8 @@ return new class extends Migration
             $table->timestamp('sent_at')->nullable();
             $table->timestamps();
 
+            $table->index(['client_package_id']);
+            $table->index(['package_session_id']);
             $table->index(['user_id']);
             $table->index(['booking_id']);
             $table->index(['type']);

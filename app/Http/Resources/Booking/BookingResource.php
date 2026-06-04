@@ -3,6 +3,8 @@
 namespace App\Http\Resources\Booking;
 
 use App\Enums\Booking\BookingStatus;
+use App\Http\Resources\Package\ClientPackageResource;
+use App\Http\Resources\Package\PackageSessionResource;
 use App\Http\Resources\Payment\PaymentResource;
 use App\Http\Resources\Public\PublicServiceResource;
 use Illuminate\Http\Request;
@@ -17,6 +19,7 @@ class BookingResource extends JsonResource
             'service_id' => $this->service_id,
             'professional_id' => $this->professional_id,
             'client_id' => $this->client_id,
+            'client_package_id' => $this->client_package_id,
             'starts_at' => $this->starts_at?->toDateTimeString(),
             'ends_at' => $this->ends_at?->toDateTimeString(),
             'status' => $this->status?->value ?? $this->status,
@@ -31,11 +34,17 @@ class BookingResource extends JsonResource
             'cancellation_reason' => $this->cancellation_reason,
             'reschedule_reason' => $this->reschedule_reason,
             'payment' => new PaymentResource($this->whenLoaded('payment')),
+            'client_package' => new ClientPackageResource($this->whenLoaded('clientPackage')),
+            'package_session' => new PackageSessionResource($this->whenLoaded('packageSession')),
             'payment_status' => $this->when(
                 $this->relationLoaded('payment'),
                 fn () => $this->payment?->status?->value ?? $this->payment?->status
             ),
+            'payment_source' => $this->client_package_id
+                ? 'package'
+                : ($this->relationLoaded('payment') && $this->payment ? 'payment' : null),
             'can_pay' => $this->status === BookingStatus::Confirmed
+                && $this->client_package_id === null
                 && (! $this->relationLoaded('payment') || $this->payment === null),
             'service' => $this->whenLoaded(
                 'service',

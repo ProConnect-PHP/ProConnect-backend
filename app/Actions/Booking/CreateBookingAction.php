@@ -4,9 +4,11 @@ namespace App\Actions\Booking;
 
 use App\Actions\Availability\GenerateAvailabilitySlotsAction;
 use App\Actions\Booking\Concerns\ValidatesBookingRules;
+use App\Actions\Package\ReservePackageSessionAction;
 use App\Enums\Booking\BookingStatus;
 use App\Events\Booking\BookingCreated;
 use App\Models\Booking\Booking;
+use App\Models\Package\ClientPackage;
 use App\Models\Service\Service;
 use App\Models\User\User;
 use Carbon\Carbon;
@@ -17,13 +19,14 @@ class CreateBookingAction
     use ValidatesBookingRules;
 
     public function __construct(
-        private readonly GenerateAvailabilitySlotsAction $generateAvailabilitySlots
+        private readonly GenerateAvailabilitySlotsAction $generateAvailabilitySlots,
+        private readonly ReservePackageSessionAction $reservePackageSession
     ) {
     }
 
-    public function __invoke(Service $service, User $client, string $startsAt): Booking
+    public function __invoke(Service $service, User $client, string $startsAt, ?string $clientPackageId = null): Booking
     {
-        return DB::transaction(function () use ($service, $client, $startsAt) {
+        return DB::transaction(function () use ($service, $client, $startsAt, $clientPackageId) {
             $service = Service::query()
                 ->whereKey($service->id)
                 ->lockForUpdate()
@@ -48,7 +51,26 @@ class CreateBookingAction
                 'modality' => $service->modality,
                 'price_snapshot' => $service->price,
                 'duration_minutes_snapshot' => $service->duration_minutes,
-            ])->load(['service.professional.user', 'professional.user', 'client']);
+            ]);
+
+            if ($clientPackageId) {
+                $clientPackage = ClientPackage::query()->findOrFail($clientPackageId);
+
+                ($this->reservePackageSession)(
+                    clientPackage: $clientPackage,
+                    booking: $booking
+                );
+
+                $booking->refresh();
+            }
+
+            $booking->load([
+                'service.professional.user',
+                'professional.user',
+                'client',
+                'clientPackage.packageProduct',
+                'packageSession',
+            ]);
 
             DB::afterCommit(function () use ($booking): void {
                 event(new BookingCreated($booking));

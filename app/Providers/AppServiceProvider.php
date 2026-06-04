@@ -6,14 +6,22 @@ use App\Events\Booking\BookingCancelled;
 use App\Events\Booking\BookingConfirmed;
 use App\Events\Booking\BookingCreated;
 use App\Events\Booking\BookingRescheduled;
+use App\Events\Package\PackagePurchased;
+use App\Events\Package\PackageSessionReserved;
 use App\Events\Payment\PaymentSucceeded;
 use App\Listeners\Booking\SendBookingCancelledNotification;
 use App\Listeners\Booking\SendBookingConfirmedNotification;
 use App\Listeners\Booking\SendBookingCreatedNotification;
 use App\Listeners\Booking\SendBookingRescheduledNotification;
+use App\Listeners\Package\SendPackagePurchasedNotifications;
+use App\Listeners\Package\SendPackageSessionReservedNotifications;
 use App\Listeners\Payment\SendPaymentSucceededNotifications;
+use App\Models\Package\ClientPackage;
+use App\Models\Package\PackageProduct;
 use App\Models\Payment\Payment;
 use App\Models\Payment\PaymentIntent;
+use App\Policies\ClientPackagePolicy;
+use App\Policies\PackageProductPolicy;
 use App\Policies\PaymentIntentPolicy;
 use App\Policies\PaymentPolicy;
 use Illuminate\Support\Facades\Event;
@@ -37,6 +45,8 @@ class AppServiceProvider extends ServiceProvider
     {
         Gate::policy(PaymentIntent::class, PaymentIntentPolicy::class);
         Gate::policy(Payment::class, PaymentPolicy::class);
+        Gate::policy(PackageProduct::class, PackageProductPolicy::class);
+        Gate::policy(ClientPackage::class, ClientPackagePolicy::class);
 
         // Event::listen(
         //     BookingCreated::class,
@@ -57,6 +67,14 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(
             PaymentSucceeded::class,
             SendPaymentSucceededNotifications::class
+        );
+        Event::listen(
+            PackagePurchased::class,
+            SendPackagePurchasedNotifications::class
+        );
+        Event::listen(
+            PackageSessionReserved::class,
+            SendPackageSessionReservedNotifications::class
         );
     }
 }

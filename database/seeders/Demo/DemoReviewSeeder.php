@@ -52,6 +52,8 @@ class DemoReviewSeeder extends Seeder
 
         if ($completedBookings->isEmpty()) {
             $this->command?->warn('⚠ No completed bookings found for reviews');
+            $this->recalculateProfessionalStats();
+
             return;
         }
 

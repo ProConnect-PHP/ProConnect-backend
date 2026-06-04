@@ -491,6 +491,116 @@ StripePaymentProvider
 
 ---
 
+# Paquetes de sesiones
+
+El sistema permite que profesionales creen paquetes de multiples sesiones y que clientes los compren con una compra simulada directa para demo/MVP.
+
+## Crear paquete profesional
+
+```http
+POST /api/v1/professional/package-products
+Authorization: Bearer {TOKEN_PROFESIONAL}
+Content-Type: application/json
+
+{
+  "service_id": "service-id",
+  "name": "Pack 4 sesiones online",
+  "description": "Ideal para seguimiento mensual.",
+  "sessions_count": 4,
+  "price": 5600,
+  "currency": "UYU",
+  "validity_days": 60,
+  "is_active": true
+}
+```
+
+## Listar paquetes publicos
+
+```http
+GET /api/v1/public/package-products
+GET /api/v1/services/{service}/package-products
+```
+
+## Comprar paquete simulado
+
+```http
+POST /api/v1/package-products/{packageProduct}/purchase
+Authorization: Bearer {TOKEN_CLIENTE}
+```
+
+Esto crea un `client_package` activo con snapshots de precio, moneda, cantidad de sesiones y vencimiento.
+
+## Mis paquetes
+
+```http
+GET /api/v1/client-packages/my
+GET /api/v1/client-packages/{clientPackage}
+```
+
+## Paquetes vendidos
+
+```http
+GET /api/v1/professional/client-packages
+GET /api/v1/professional/client-packages/{clientPackage}
+```
+
+## Reservar usando paquete
+
+```http
+POST /api/v1/services/{service}/bookings
+Authorization: Bearer {TOKEN_CLIENTE}
+Content-Type: application/json
+
+{
+  "starts_at": "2026-06-10 10:00:00",
+  "client_package_id": "client-package-id"
+}
+```
+
+Resultado esperado:
+
+```txt
+booking creada en pending
+booking.client_package_id seteado
+package_session status = reserved
+client_package.used_sessions incrementado
+```
+
+## Reglas
+
+* La compra del paquete es simulada directa por ahora.
+* No se crea `payment` para la compra del paquete en esta fase.
+* La sesion se descuenta al reservar para evitar sobreventa.
+* Si la reserva se cancela, la sesion `reserved` se libera y se decrementa `used_sessions`.
+* Si la reserva se completa, `ConsumePackageSessionAction` marca la sesion como `consumed`.
+* `package_sessions.booking_id` es unico para que una reserva no consuma mas de una sesion.
+* `client_packages` guarda snapshots operativos y no usa soft delete; se cancela por estado.
+
+## Emails de paquetes
+
+La compra simulada de un paquete dispara emails transaccionales:
+
+* `package_purchased_client`: confirmacion al cliente.
+* `package_purchased_professional`: aviso al profesional.
+
+La reserva usando paquete dispara emails especificos:
+
+* `package_session_reserved_client`: reserva cubierta por paquete para el cliente.
+* `package_session_reserved_professional`: aviso al profesional.
+
+Estos emails usan listeners queued en la cola `emails`, se registran en `notification_logs` y no duplican el email generico de `BookingCreated` cuando la reserva tiene `client_package_id`.
+
+Para reiniciar workers/Horizon despues de cambios de notificaciones:
+
+```bash
+docker compose exec proconnect_laravel php artisan optimize:clear
+docker compose exec proconnect_laravel php artisan queue:restart
+docker compose exec proconnect_laravel php artisan horizon:terminate
+docker compose restart proconnect_horizon
+```
+
+---
+
 # 🧪 Filosofía del Proyecto
 
 * Clean code
@@ -636,6 +746,43 @@ El seeder crea automáticamente:
 ✅ **3+ respuestas profesionales** a reviews  
 ✅ **Ratings recalculados** automáticamente  
 
+### Pagos y paquetes incluidos
+
+El seeder tambien crea:
+
+- **8 paquetes de sesiones** publicados por profesionales.
+- **4 paquetes comprados** por clientes en estados `active`, `depleted` y `expired`.
+- **Package sessions** en estados `reserved`, `consumed` y `released`.
+- **Payment intents** en estados `succeeded`, `pending` y `failed`.
+- **Payments succeeded** asociados solo a reservas individuales `paid`.
+- Ningun payment para reservas cubiertas por `client_package_id`.
+
+### Paquetes demo
+
+Profesionales demo tienen paquetes como:
+
+- `Pack 4 sesiones de terapia online`
+- `Pack 8 sesiones de acompañamiento terapéutico`
+- `Pack 4 sesiones de coaching ejecutivo`
+- `Pack 3 consultas nutricionales`
+- `Pack 5 mentorías de negocio`
+- `Pack diagnóstico + estrategia` queda inactivo para validar listados publicos.
+
+### Clientes con paquetes
+
+- `cliente@proconnect.test` tiene un paquete activo con sesiones disponibles.
+- `cliente2@proconnect.test` tiene un paquete activo con sesiones consumidas, reservadas y liberadas.
+- `cliente3@proconnect.test` tiene un paquete `depleted` y otro `expired`.
+
+### Pagos demo
+
+El seeder crea:
+
+- `payments` succeeded para reservas `paid` sin paquete.
+- `payment_intents` pending para probar checkout pendiente.
+- `payment_intents` failed para probar reintento de pago.
+- `payment_intents` succeeded vinculados a los pagos demo.
+
 ## Validar datos demo
 
 Después de ejecutar `migrate:fresh --seed`:
@@ -690,7 +837,7 @@ Los seeders de demo **NO se ejecutarán en producción** por seguridad:
 
 ```php
 // DatabaseSeeder.php
-if ($this->app->environment('production')) {
+if (app()->environment('production')) {
     return;
 }
 ```

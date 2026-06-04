@@ -6,6 +6,8 @@ use App\Models\Availability\AvailabilityException;
 use App\Models\Availability\AvailabilityRule;
 use App\Models\Booking\Booking;
 use App\Models\Company\Company;
+use App\Models\Package\ClientPackage;
+use App\Models\Package\PackageProduct;
 use App\Models\Review\Review;
 use App\Models\User\ProfessionalProfile;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -90,6 +92,16 @@ class Service extends Model
     public function bookings(): HasMany
     {
         return $this->hasMany(Booking::class);
+    }
+
+    public function packageProducts(): HasMany
+    {
+        return $this->hasMany(PackageProduct::class);
+    }
+
+    public function clientPackages(): HasMany
+    {
+        return $this->hasMany(ClientPackage::class);
     }
 
     public function reviews(): HasMany

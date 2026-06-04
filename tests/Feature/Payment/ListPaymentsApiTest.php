@@ -31,11 +31,11 @@ class ListPaymentsApiTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertJsonCount(1, 'payments.data')
-            ->assertJsonPath('payments.data.0.id', $payment->id)
+            ->assertJsonCount(1, 'payments')
+            ->assertJsonPath('payments.0.id', $payment->id)
             ->assertJsonPath('meta.total', 1);
 
-        $this->assertNotSame($otherPayment->id, $response->json('payments.data.0.id'));
+        $this->assertNotSame($otherPayment->id, $response->json('payments.0.id'));
     }
 
     public function test_professional_lists_only_received_payments(): void
@@ -51,11 +51,11 @@ class ListPaymentsApiTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertJsonCount(1, 'payments.data')
-            ->assertJsonPath('payments.data.0.id', $payment->id)
+            ->assertJsonCount(1, 'payments')
+            ->assertJsonPath('payments.0.id', $payment->id)
             ->assertJsonPath('meta.total', 1);
 
-        $this->assertNotSame($otherPayment->id, $response->json('payments.data.0.id'));
+        $this->assertNotSame($otherPayment->id, $response->json('payments.0.id'));
     }
 
     public function test_user_without_professional_profile_cannot_list_professional_payments(): void
@@ -79,7 +79,7 @@ class ListPaymentsApiTest extends TestCase
             ->withHeaders($this->authHeaders($client))
             ->getJson('/api/v1/payments/my?per_page=1')
             ->assertOk()
-            ->assertJsonCount(1, 'payments.data')
+            ->assertJsonCount(1, 'payments')
             ->assertJsonPath('meta.per_page', 1)
             ->assertJsonPath('meta.total', 2);
     }

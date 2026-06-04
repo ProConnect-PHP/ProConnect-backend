@@ -13,6 +13,8 @@ class ShowBookingAction
             'professional.user',
             'client',
             'payment',
+            'clientPackage.packageProduct',
+            'packageSession',
         ]);
     }
 }

@@ -28,7 +28,8 @@ class BookingController extends Controller
         $booking = $action(
             service: $service,
             client: auth('user_jwt')->user(),
-            startsAt: $request->validated('starts_at')
+            startsAt: $request->validated('starts_at'),
+            clientPackageId: $request->validated('client_package_id')
         );
 
         return response()->json([
