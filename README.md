@@ -405,6 +405,92 @@ REDIS_PORT=6379
 
 ---
 
+# Payment simulator
+
+ProConnect incluye un motor de pagos simulado para desarrollo y demo. No integra MercadoPago, PayPal ni Stripe todavia, pero usa una arquitectura compatible con futuros proveedores.
+
+## Configuracion
+
+```env
+PAYMENTS_CURRENCY=UYU
+PAYMENT_INTENT_EXPIRATION_MINUTES=30
+```
+
+## Crear intent de pago
+
+```http
+POST /api/v1/bookings/{booking}/payment-intents
+Authorization: Bearer {TOKEN_CLIENTE}
+```
+
+El frontend no envia `amount`. El backend calcula el monto desde `booking.price_snapshot`.
+
+## Simular pago exitoso
+
+```http
+POST /api/v1/payment-intents/{paymentIntent}/simulate-success
+Authorization: Bearer {TOKEN_CLIENTE}
+```
+
+Resultado esperado:
+
+```txt
+payment_intent.status = succeeded
+payments row creada
+booking.status = paid
+booking.paid_at != null
+```
+
+## Simular pago fallido
+
+```http
+POST /api/v1/payment-intents/{paymentIntent}/simulate-failure
+Authorization: Bearer {TOKEN_CLIENTE}
+Content-Type: application/json
+
+{
+  "failure_reason": "Tarjeta simulada rechazada."
+}
+```
+
+Resultado esperado:
+
+```txt
+payment_intent.status = failed
+booking.status = confirmed
+payments count = 0
+```
+
+## Listar pagos
+
+```http
+GET /api/v1/payments/my
+GET /api/v1/professional/payments
+```
+
+## Reglas
+
+* Solo se pueden pagar reservas `confirmed`.
+* No se puede pagar `pending`, `paid`, `in_progress`, `completed`, `cancelled` ni `no_show`.
+* El monto sale del backend desde `booking.price_snapshot`.
+* `payments.booking_id` es unico para impedir doble pago exitoso.
+* Si un intent falla, se puede crear un nuevo intent.
+* `payment_intents` registra intentos; `payments` registra pagos finales.
+* Las transacciones y locks evitan carreras entre dobles confirmaciones de pago.
+
+## Futuro provider real
+
+El simulador deja preparado el camino para extraer una interfaz como `PaymentProviderGateway` y agregar implementaciones futuras:
+
+```txt
+SimulatorPaymentProvider
+MercadoPagoPaymentProvider
+PaypalPaymentProvider
+StripePaymentProvider
+```
+
+---
+
 # 🧪 Filosofía del Proyecto
 
 * Clean code

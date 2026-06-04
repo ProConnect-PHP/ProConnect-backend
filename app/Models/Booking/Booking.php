@@ -3,6 +3,8 @@
 namespace App\Models\Booking;
 
 use App\Enums\Booking\BookingStatus;
+use App\Models\Payment\Payment;
+use App\Models\Payment\PaymentIntent;
 use App\Models\Review\Review;
 use App\Models\Service\Service;
 use App\Models\User\ProfessionalProfile;
@@ -12,6 +14,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -77,6 +80,16 @@ class Booking extends Model
     public function review(): HasOne
     {
         return $this->hasOne(Review::class);
+    }
+
+    public function paymentIntents(): HasMany
+    {
+        return $this->hasMany(PaymentIntent::class);
+    }
+
+    public function payment(): HasOne
+    {
+        return $this->hasOne(Payment::class);
     }
 
     public function isCancellable(): bool

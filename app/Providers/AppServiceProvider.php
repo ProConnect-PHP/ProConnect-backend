@@ -6,11 +6,18 @@ use App\Events\Booking\BookingCancelled;
 use App\Events\Booking\BookingConfirmed;
 use App\Events\Booking\BookingCreated;
 use App\Events\Booking\BookingRescheduled;
+use App\Events\Payment\PaymentSucceeded;
 use App\Listeners\Booking\SendBookingCancelledNotification;
 use App\Listeners\Booking\SendBookingConfirmedNotification;
 use App\Listeners\Booking\SendBookingCreatedNotification;
 use App\Listeners\Booking\SendBookingRescheduledNotification;
+use App\Listeners\Payment\SendPaymentSucceededNotifications;
+use App\Models\Payment\Payment;
+use App\Models\Payment\PaymentIntent;
+use App\Policies\PaymentIntentPolicy;
+use App\Policies\PaymentPolicy;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -28,6 +35,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Gate::policy(PaymentIntent::class, PaymentIntentPolicy::class);
+        Gate::policy(Payment::class, PaymentPolicy::class);
+
         // Event::listen(
         //     BookingCreated::class,
         //     SendBookingCreatedNotification::class
@@ -44,5 +54,9 @@ class AppServiceProvider extends ServiceProvider
         //     BookingRescheduled::class,
         //     SendBookingRescheduledNotification::class
         // );
+        Event::listen(
+            PaymentSucceeded::class,
+            SendPaymentSucceededNotifications::class
+        );
     }
 }

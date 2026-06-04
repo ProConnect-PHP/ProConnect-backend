@@ -4,6 +4,8 @@ namespace App\Models\User;
 
 use App\Models\Booking\Booking;
 use App\Models\Company\Company;
+use App\Models\Payment\Payment;
+use App\Models\Payment\PaymentIntent;
 use App\Models\Review\Review;
 use App\Models\Review\ReviewReply;
 use App\Models\Service\Service;
@@ -56,6 +58,16 @@ class ProfessionalProfile extends Model
     public function reviews(): HasMany
     {
         return $this->hasMany(Review::class, 'professional_id');
+    }
+
+    public function paymentIntents(): HasMany
+    {
+        return $this->hasMany(PaymentIntent::class, 'professional_id');
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class, 'professional_id');
     }
 
     public function reviewReplies(): HasMany

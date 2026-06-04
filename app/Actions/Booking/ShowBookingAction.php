@@ -12,6 +12,7 @@ class ShowBookingAction
             'service.professional.user',
             'professional.user',
             'client',
+            'payment',
         ]);
     }
 }

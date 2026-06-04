@@ -2,6 +2,8 @@
 
 namespace App\Http\Resources\Booking;
 
+use App\Enums\Booking\BookingStatus;
+use App\Http\Resources\Payment\PaymentResource;
 use App\Http\Resources\Public\PublicServiceResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -28,6 +30,13 @@ class BookingResource extends JsonResource
             'no_show_at' => $this->no_show_at?->toDateTimeString(),
             'cancellation_reason' => $this->cancellation_reason,
             'reschedule_reason' => $this->reschedule_reason,
+            'payment' => new PaymentResource($this->whenLoaded('payment')),
+            'payment_status' => $this->when(
+                $this->relationLoaded('payment'),
+                fn () => $this->payment?->status?->value ?? $this->payment?->status
+            ),
+            'can_pay' => $this->status === BookingStatus::Confirmed
+                && (! $this->relationLoaded('payment') || $this->payment === null),
             'service' => $this->whenLoaded(
                 'service',
                 fn () => new PublicServiceResource($this->service)

@@ -5,6 +5,8 @@ namespace App\Models\User;
 
 use App\Models\Booking\Booking;
 use App\Models\Contact\Contact;
+use App\Models\Payment\Payment;
+use App\Models\Payment\PaymentIntent;
 use App\Models\Review\Review;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -64,6 +66,16 @@ class User extends Authenticatable implements JWTSubject
     public function reviews(): HasMany
     {
         return $this->hasMany(Review::class, 'client_id');
+    }
+
+    public function paymentIntents(): HasMany
+    {
+        return $this->hasMany(PaymentIntent::class, 'client_id');
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class, 'client_id');
     }
 
     public function getJWTIdentifier(): mixed

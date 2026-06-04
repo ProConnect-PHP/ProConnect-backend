@@ -6,6 +6,10 @@ use App\Http\Controllers\Availability\AvailabilityExceptionController;
 use App\Http\Controllers\Availability\AvailabilityRuleController;
 use App\Http\Controllers\Booking\BookingController;
 use App\Http\Controllers\Booking\ProfessionalBookingController;
+use App\Http\Controllers\Payment\BookingPaymentIntentController;
+use App\Http\Controllers\Payment\ClientPaymentController;
+use App\Http\Controllers\Payment\PaymentSimulationController;
+use App\Http\Controllers\Payment\ProfessionalPaymentController;
 use App\Http\Controllers\ProfessionalProfile\ProfessionalProfileController;
 use App\Http\Controllers\Public\PublicProfessionalController;
 use App\Http\Controllers\Public\PublicServiceController;
@@ -59,15 +63,20 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/bookings/my', [BookingController::class, 'my']);
         Route::get('/bookings/{booking}', [BookingController::class, 'show']);
+        Route::post('/bookings/{booking}/payment-intents', [BookingPaymentIntentController::class, 'store']);
         Route::post('/bookings/{booking}/review', [BookingReviewController::class, 'store']);
         Route::post('/bookings/{booking}/cancel', [BookingController::class, 'cancel']);
         Route::post('/bookings/{booking}/reschedule', [BookingController::class, 'reschedule']);
+        Route::post('/payment-intents/{paymentIntent}/simulate-success', [PaymentSimulationController::class, 'success']);
+        Route::post('/payment-intents/{paymentIntent}/simulate-failure', [PaymentSimulationController::class, 'failure']);
+        Route::get('/payments/my', [ClientPaymentController::class, 'index']);
         Route::put('/reviews/{review}', [ReviewController::class, 'update']);
         Route::delete('/reviews/{review}', [ReviewController::class, 'destroy']);
         Route::post('/reviews/{review}/replies', [ReviewReplyController::class, 'store']);
         Route::put('/review-replies/{reply}', [ReviewReplyController::class, 'update']);
 
         Route::get('/professional/bookings', [ProfessionalBookingController::class, 'index']);
+        Route::get('/professional/payments', [ProfessionalPaymentController::class, 'index']);
         Route::post('/bookings/{booking}/confirm', [ProfessionalBookingController::class, 'confirm']);
 
         Route::prefix('services/{service}')->group(function () {
