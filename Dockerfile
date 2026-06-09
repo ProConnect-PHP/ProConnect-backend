@@ -15,11 +15,7 @@ WORKDIR /var/www/html
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
 
-COPY package.json package-lock.json ./
-RUN npm ci
-
 COPY . .
-RUN npm run build
 
 COPY docker/nginx.conf /etc/nginx/http.d/default.conf
 COPY docker/start.sh /start.sh
