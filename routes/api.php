@@ -4,8 +4,11 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Availability\AvailabilityController;
 use App\Http\Controllers\Availability\AvailabilityExceptionController;
 use App\Http\Controllers\Availability\AvailabilityRuleController;
+use App\Http\Controllers\Booking\BookingAvailableActionsController;
 use App\Http\Controllers\Booking\BookingController;
 use App\Http\Controllers\Booking\ProfessionalBookingController;
+use App\Http\Controllers\Booking\ProfessionalBookingPolicyController;
+use App\Http\Controllers\Booking\ProfessionalReminderRuleController;
 use App\Http\Controllers\Package\MyClientPackageController;
 use App\Http\Controllers\Package\PackagePurchaseController;
 use App\Http\Controllers\Package\ProfessionalPackageProductController;
@@ -75,6 +78,7 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/bookings/my', [BookingController::class, 'my']);
         Route::get('/bookings/{booking}', [BookingController::class, 'show']);
+        Route::get('/bookings/{booking}/available-actions', [BookingAvailableActionsController::class, 'show']);
         Route::get('/bookings/{booking}/video-session', [BookingVideoSessionController::class, 'show']);
         Route::post('/bookings/{booking}/video-session', [BookingVideoSessionController::class, 'store']);
         Route::post('/bookings/{booking}/payment-intents', [BookingPaymentIntentController::class, 'store']);
@@ -95,6 +99,12 @@ Route::prefix('v1')->group(function () {
         Route::put('/review-replies/{reply}', [ReviewReplyController::class, 'update']);
 
         Route::get('/professional/bookings', [ProfessionalBookingController::class, 'index']);
+        Route::get('/professional/me/booking-policy', [ProfessionalBookingPolicyController::class, 'show']);
+        Route::put('/professional/me/booking-policy', [ProfessionalBookingPolicyController::class, 'update']);
+        Route::get('/professional/me/reminder-rules', [ProfessionalReminderRuleController::class, 'index']);
+        Route::post('/professional/me/reminder-rules', [ProfessionalReminderRuleController::class, 'store']);
+        Route::put('/professional/me/reminder-rules/{reminderRule}', [ProfessionalReminderRuleController::class, 'update']);
+        Route::delete('/professional/me/reminder-rules/{reminderRule}', [ProfessionalReminderRuleController::class, 'destroy']);
         Route::get('/professional/video-sessions', [ProfessionalVideoSessionController::class, 'index']);
         Route::get('/professional/payments', [ProfessionalPaymentController::class, 'index']);
         Route::get('/professional/package-products', [ProfessionalPackageProductController::class, 'index']);

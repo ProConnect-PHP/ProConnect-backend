@@ -132,23 +132,4 @@ trait ValidatesBookingRules
             status: Response::HTTP_CONFLICT
         );
     }
-
-    private function ensureCancellationWindowIsOpen(Booking $booking, string $error): void
-    {
-        $deadline = now()->addMinutes((int) $booking->service->min_reschedule_minutes);
-
-        if ($booking->starts_at->gte($deadline)) {
-            return;
-        }
-
-        $message = $error === 'RescheduleWindowExpired'
-            ? 'Ya no es posible reprogramar esta reserva.'
-            : 'Ya no es posible cancelar esta reserva.';
-
-        throw new ApiException(
-            error: $error,
-            message: $message,
-            status: Response::HTTP_CONFLICT
-        );
-    }
 }

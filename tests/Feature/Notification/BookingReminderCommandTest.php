@@ -2,15 +2,22 @@
 
 namespace Tests\Feature\Notification;
 
+use App\Enums\Booking\BookingReminderDeliveryStatus;
 use App\Enums\Booking\BookingStatus;
-use App\Mail\Booking\BookingReminderMail;
+use App\Jobs\Booking\SendBookingReminderJob;
 use App\Models\Booking\Booking;
+use App\Models\Booking\BookingReminderDelivery;
+use App\Models\Booking\ProfessionalBookingReminderRule;
 use App\Models\Service\Service;
 use App\Models\User\ProfessionalProfile;
 use App\Models\User\User;
+use App\Notifications\BookingReminderNotification;
+use App\Notifications\Channels\BookingReminderDatabaseChannel;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Queue;
+use RuntimeException;
 use Tests\TestCase;
 
 class BookingReminderCommandTest extends TestCase
@@ -31,134 +38,165 @@ class BookingReminderCommandTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_sends_reminder_for_confirmed_booking_inside_window(): void
+    public function test_scheduler_creates_delivery_and_dispatches_matching_rule(): void
     {
-        Mail::fake();
+        Queue::fake();
+        [$booking] = $this->createBookingScenario();
 
-        [$booking, $client, $professionalUser] = $this->createBookingScenario([
-            'status' => BookingStatus::Confirmed,
-            'confirmed_at' => now(),
-            'starts_at' => now()->copy()->addDay()->addMinutes(2),
-            'ends_at' => now()->copy()->addDay()->addHour()->addMinutes(2),
-        ]);
+        $this->artisan('bookings:dispatch-reminders')->assertExitCode(0);
 
-        $this->artisan('booking:send-reminders')
-            ->assertExitCode(0);
+        $delivery = BookingReminderDelivery::query()->firstOrFail();
 
-        Mail::assertSent(
-            BookingReminderMail::class,
-            fn (BookingReminderMail $mail): bool => $mail->hasTo($client->email)
+        $this->assertSame($booking->id, $delivery->booking_id);
+        $this->assertSame(BookingReminderDeliveryStatus::Processing, $delivery->status);
+        Queue::assertPushed(
+            SendBookingReminderJob::class,
+            fn (SendBookingReminderJob $job): bool => $job->deliveryId === $delivery->id
         );
-        Mail::assertSent(
-            BookingReminderMail::class,
-            fn (BookingReminderMail $mail): bool => $mail->hasTo($professionalUser->email)
-        );
-        $this->assertNotNull($booking->refresh()->reminder_sent_at);
-        $this->assertDatabaseHas('notification_logs', [
-            'booking_id' => $booking->id,
-            'type' => 'booking_reminder_24h',
-            'recipient' => $client->email,
-            'status' => 'sent',
-        ]);
     }
 
-    public function test_does_not_send_reminder_for_pending_booking(): void
+    public function test_scheduler_does_not_create_delivery_when_reminders_are_disabled(): void
     {
-        Mail::fake();
+        Queue::fake();
+        [$booking, , $professional] = $this->createBookingScenario();
+        $professional->bookingPolicy()->update(['reminders_enabled' => false]);
 
-        [$booking] = $this->createBookingScenario([
-            'status' => BookingStatus::Pending,
-            'starts_at' => now()->copy()->addDay()->addMinutes(2),
-            'ends_at' => now()->copy()->addDay()->addHour()->addMinutes(2),
-        ]);
+        $this->artisan('bookings:dispatch-reminders')->assertExitCode(0);
 
-        $this->artisan('booking:send-reminders')
-            ->assertExitCode(0);
-
-        Mail::assertNothingSent();
-        $this->assertNull($booking->refresh()->reminder_sent_at);
+        $this->assertDatabaseCount('booking_reminder_deliveries', 0);
+        Queue::assertNothingPushed();
     }
 
-    public function test_does_not_send_reminder_for_cancelled_booking(): void
+    public function test_scheduler_ignores_cancelled_and_completed_bookings(): void
     {
-        Mail::fake();
+        Queue::fake();
+        $this->createBookingScenario(['status' => BookingStatus::Cancelled]);
+        $this->createBookingScenario(['status' => BookingStatus::Completed]);
 
-        [$booking] = $this->createBookingScenario([
+        $this->artisan('bookings:dispatch-reminders')->assertExitCode(0);
+
+        $this->assertDatabaseCount('booking_reminder_deliveries', 0);
+        Queue::assertNothingPushed();
+    }
+
+    public function test_scheduler_does_not_duplicate_deliveries(): void
+    {
+        Queue::fake();
+        $this->createBookingScenario();
+
+        $this->artisan('bookings:dispatch-reminders')->assertExitCode(0);
+        $this->artisan('bookings:dispatch-reminders')->assertExitCode(0);
+
+        $this->assertDatabaseCount('booking_reminder_deliveries', 1);
+        Queue::assertPushed(SendBookingReminderJob::class, 1);
+    }
+
+    public function test_job_notifies_selected_recipients_and_marks_delivery_sent(): void
+    {
+        Notification::fake();
+        [$booking, $client, , $professionalUser, $rule] = $this->createBookingScenario();
+        $delivery = $this->createDelivery($booking, $rule);
+
+        (new SendBookingReminderJob($delivery->id))->handle();
+
+        Notification::assertSentTo(
+            $client,
+            BookingReminderNotification::class,
+            fn (BookingReminderNotification $notification): bool => $notification->recipientType === 'client'
+        );
+        Notification::assertSentTo(
+            $professionalUser,
+            BookingReminderNotification::class,
+            fn (BookingReminderNotification $notification): bool => $notification->recipientType === 'professional'
+        );
+        $this->assertSame(
+            BookingReminderDeliveryStatus::Sent,
+            $delivery->refresh()->status
+        );
+        $this->assertNotNull($delivery->sent_at);
+    }
+
+    public function test_job_marks_delivery_skipped_when_booking_is_no_longer_eligible(): void
+    {
+        Notification::fake();
+        [$booking, , , , $rule] = $this->createBookingScenario();
+        $delivery = $this->createDelivery($booking, $rule);
+        $booking->update([
             'status' => BookingStatus::Cancelled,
             'cancelled_at' => now(),
-            'starts_at' => now()->copy()->addDay()->addMinutes(2),
-            'ends_at' => now()->copy()->addDay()->addHour()->addMinutes(2),
         ]);
 
-        $this->artisan('booking:send-reminders')
-            ->assertExitCode(0);
+        (new SendBookingReminderJob($delivery->id))->handle();
 
-        Mail::assertNothingSent();
-        $this->assertNull($booking->refresh()->reminder_sent_at);
+        Notification::assertNothingSent();
+        $this->assertSame(
+            BookingReminderDeliveryStatus::Skipped,
+            $delivery->refresh()->status
+        );
     }
 
-    public function test_does_not_send_duplicate_reminder(): void
+    public function test_job_marks_delivery_failed_when_a_channel_throws(): void
     {
-        Mail::fake();
-
-        [$booking] = $this->createBookingScenario([
-            'status' => BookingStatus::Confirmed,
-            'confirmed_at' => now(),
-            'starts_at' => now()->copy()->addDay()->addMinutes(2),
-            'ends_at' => now()->copy()->addDay()->addHour()->addMinutes(2),
-            'reminder_sent_at' => now(),
+        [$booking, , , , $rule] = $this->createBookingScenario();
+        $rule->update([
+            'send_email' => false,
+            'send_database_notification' => true,
         ]);
+        $delivery = $this->createDelivery($booking, $rule);
 
-        $this->artisan('booking:send-reminders')
-            ->assertExitCode(0);
+        $this->mock(BookingReminderDatabaseChannel::class)
+            ->shouldReceive('send')
+            ->andThrow(new RuntimeException('Channel unavailable'));
 
-        Mail::assertNothingSent();
-        $this->assertNotNull($booking->refresh()->reminder_sent_at);
-    }
+        try {
+            (new SendBookingReminderJob($delivery->id))->handle();
+            $this->fail('Expected reminder channel failure.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('Channel unavailable', $exception->getMessage());
+        }
 
-    public function test_does_not_send_reminder_outside_window(): void
-    {
-        Mail::fake();
-
-        [$booking] = $this->createBookingScenario([
-            'status' => BookingStatus::Confirmed,
-            'confirmed_at' => now(),
-            'starts_at' => now()->copy()->addDay()->addMinutes(10),
-            'ends_at' => now()->copy()->addDay()->addHour()->addMinutes(10),
-        ]);
-
-        $this->artisan('booking:send-reminders')
-            ->assertExitCode(0);
-
-        Mail::assertNothingSent();
-        $this->assertNull($booking->refresh()->reminder_sent_at);
+        $delivery->refresh();
+        $this->assertSame(BookingReminderDeliveryStatus::Failed, $delivery->status);
+        $this->assertSame('Channel unavailable', $delivery->failure_reason);
     }
 
     private function createBookingScenario(array $overrides = []): array
     {
         $professionalUser = User::factory()->professional()->create();
-        $profile = ProfessionalProfile::factory()->create([
+        $professional = ProfessionalProfile::factory()->create([
             'user_id' => $professionalUser->id,
         ]);
         $client = User::factory()->create();
         $service = Service::factory()->create([
-            'professional_id' => $profile->id,
+            'professional_id' => $professional->id,
             'duration_minutes' => 60,
         ]);
         $booking = Booking::factory()->create([
             'service_id' => $service->id,
-            'professional_id' => $profile->id,
+            'professional_id' => $professional->id,
             'client_id' => $client->id,
-            'starts_at' => now()->copy()->addDay()->addMinutes(2),
-            'ends_at' => now()->copy()->addDay()->addHour()->addMinutes(2),
+            'starts_at' => now()->addMinutes(120),
+            'ends_at' => now()->addMinutes(180),
             'status' => BookingStatus::Confirmed,
             'confirmed_at' => now(),
-            'modality' => $service->modality,
-            'price_snapshot' => $service->price,
-            'duration_minutes_snapshot' => $service->duration_minutes,
             ...$overrides,
         ]);
+        $rule = $professional->reminderRules()
+            ->where('minutes_before_start', 120)
+            ->firstOrFail();
 
-        return [$booking, $client, $professionalUser];
+        return [$booking, $client, $professional, $professionalUser, $rule];
+    }
+
+    private function createDelivery(
+        Booking $booking,
+        ProfessionalBookingReminderRule $rule
+    ): BookingReminderDelivery {
+        return BookingReminderDelivery::query()->create([
+            'booking_id' => $booking->id,
+            'reminder_rule_id' => $rule->id,
+            'scheduled_for' => now(),
+            'status' => BookingReminderDeliveryStatus::Processing,
+        ]);
     }
 }

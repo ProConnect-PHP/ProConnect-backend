@@ -111,6 +111,11 @@ class Booking extends Model
         return $this->hasOne(VideoSession::class);
     }
 
+    public function reminderDeliveries(): HasMany
+    {
+        return $this->hasMany(BookingReminderDelivery::class);
+    }
+
     public function isCancellable(): bool
     {
         return in_array($this->status, [
@@ -125,6 +130,15 @@ class Booking extends Model
         return in_array($this->status, [
             BookingStatus::Pending,
             BookingStatus::Confirmed,
+            BookingStatus::Paid,
         ], true);
+    }
+
+    public function isReminderEligible(): bool
+    {
+        return in_array($this->status, [
+            BookingStatus::Confirmed,
+            BookingStatus::Paid,
+        ], true) && $this->starts_at?->isFuture();
     }
 }

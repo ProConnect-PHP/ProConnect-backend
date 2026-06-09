@@ -16,6 +16,7 @@ La documentación fue consolidada a partir de lo trabajado en el proyecto: auten
 8. [Videollamadas LiveKit](./08-videollamadas-livekit.md)
 9. [Reseñas y reputación](./09-resenas-reputacion.md)
 10. [Admin, infraestructura y RNF](./10-admin-infra-rnf.md)
+11. [Políticas de reservas y recordatorios](./11-politicas-reservas-recordatorios.md)
 
 ## Leyenda
 
