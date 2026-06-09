@@ -30,13 +30,26 @@ class PurchasePackageAction
             }
 
             if ($client->professionalProfile?->id === $packageProduct->professional_id) {
-                throw new ApiException(
+                    throw new ApiException(
                     error: 'CannotPurchaseOwnPackage',
                     message: 'No puedes comprar tu propio paquete.',
                     status: Response::HTTP_CONFLICT
                 );
             }
 
+            $alreadyPurchased = ClientPackage::query()
+                ->where('package_product_id', $packageProduct->id)
+                ->where('client_id', $client->id)
+                ->exists();
+
+            if ($alreadyPurchased) {
+                throw new ApiException(
+                error: 'PackageAlreadyPurchased',
+                message: 'Ya has adquirido este paquete. Solo se permite un paquete por persona.',
+                status: Response::HTTP_CONFLICT
+                );
+            }
+            
             $purchasedAt = now();
 
             $clientPackage = ClientPackage::create([
