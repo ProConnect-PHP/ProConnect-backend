@@ -4,12 +4,14 @@ namespace App\Actions\Booking;
 
 use App\Actions\Availability\GenerateAvailabilitySlotsAction;
 use App\Actions\Booking\Concerns\ValidatesBookingRules;
+use App\Enums\Booking\BookingReminderDeliveryStatus;
 use App\Enums\Booking\BookingStatus;
-use App\Exceptions\ApiException;
 use App\Events\Booking\BookingRescheduled;
+use App\Exceptions\ApiException;
 use App\Models\Booking\Booking;
 use App\Models\Service\Service;
 use App\Models\User\User;
+use App\Services\Booking\BookingReschedulingPolicyChecker;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
@@ -19,15 +21,15 @@ class RescheduleBookingAction
     use ValidatesBookingRules;
 
     public function __construct(
-        private readonly GenerateAvailabilitySlotsAction $generateAvailabilitySlots
-    ) {
-    }
+        private readonly GenerateAvailabilitySlotsAction $generateAvailabilitySlots,
+        private readonly BookingReschedulingPolicyChecker $policyChecker
+    ) {}
 
     public function __invoke(Booking $booking, User $actor, string $startsAt, ?string $reason = null): Booking
     {
         return DB::transaction(function () use ($booking, $actor, $startsAt, $reason) {
             $booking = Booking::query()
-                ->with('service')
+                ->with(['service', 'professional.bookingPolicy'])
                 ->whereKey($booking->id)
                 ->lockForUpdate()
                 ->firstOrFail();
@@ -37,15 +39,15 @@ class RescheduleBookingAction
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if (! $booking->isReschedulable()) {
+            if ($actor->id === $booking->client_id) {
+                $this->policyChecker->assertClientCanReschedule($booking);
+            } elseif (! $booking->isReschedulable()) {
                 throw new ApiException(
                     error: 'InvalidBookingStatusTransition',
                     message: 'La reserva no puede reprogramarse en su estado actual.',
                     status: Response::HTTP_CONFLICT
                 );
             }
-
-            $this->ensureCancellationWindowIsOpen($booking, 'RescheduleWindowExpired');
 
             $startsAt = Carbon::parse($startsAt)->seconds(0);
             $endsAt = $startsAt->copy()->addMinutes((int) $service->duration_minutes);
@@ -57,10 +59,18 @@ class RescheduleBookingAction
             $booking->update([
                 'starts_at' => $startsAt,
                 'ends_at' => $endsAt,
-                'status' => BookingStatus::Pending,
-                'confirmed_at' => null,
+                'status' => $booking->status === BookingStatus::Paid
+                    ? BookingStatus::Paid
+                    : BookingStatus::Pending,
+                'confirmed_at' => $booking->status === BookingStatus::Paid
+                    ? $booking->confirmed_at
+                    : null,
                 'reschedule_reason' => $reason,
             ]);
+
+            $booking->reminderDeliveries()
+                ->where('status', '!=', BookingReminderDeliveryStatus::Sent->value)
+                ->delete();
 
             $booking = $booking->refresh()->load([
                 'service.professional.user',

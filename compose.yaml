@@ -21,6 +21,7 @@ services:
             - '.:/var/www/html'
         networks:
             - sail
+            - public
         depends_on:
             - proconnect_pgsql
             - proconnect_redis

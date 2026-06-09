@@ -3,6 +3,8 @@
 namespace App\Models\User;
 
 use App\Models\Booking\Booking;
+use App\Models\Booking\ProfessionalBookingPolicy;
+use App\Models\Booking\ProfessionalBookingReminderRule;
 use App\Models\Company\Company;
 use App\Models\Package\ClientPackage;
 use App\Models\Package\PackageProduct;
@@ -20,6 +22,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable('user_id', 'bio', 'avg_rating', 'reviews_count', 'is_verified')]
@@ -57,6 +60,16 @@ class ProfessionalProfile extends Model
     public function bookings(): HasMany
     {
         return $this->hasMany(Booking::class, 'professional_id');
+    }
+
+    public function bookingPolicy(): HasOne
+    {
+        return $this->hasOne(ProfessionalBookingPolicy::class, 'professional_id');
+    }
+
+    public function reminderRules(): HasMany
+    {
+        return $this->hasMany(ProfessionalBookingReminderRule::class, 'professional_id');
     }
 
     public function packageProducts(): HasMany

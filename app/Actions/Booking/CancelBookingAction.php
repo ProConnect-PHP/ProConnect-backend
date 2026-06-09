@@ -6,10 +6,11 @@ use App\Actions\Booking\Concerns\ValidatesBookingRules;
 use App\Actions\Package\ReleasePackageSessionAction;
 use App\Actions\Video\CancelVideoSessionAction;
 use App\Enums\Booking\BookingStatus;
-use App\Exceptions\ApiException;
 use App\Events\Booking\BookingCancelled;
+use App\Exceptions\ApiException;
 use App\Models\Booking\Booking;
 use App\Models\User\User;
+use App\Services\Booking\BookingCancellationPolicyChecker;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -19,28 +20,28 @@ class CancelBookingAction
 
     public function __construct(
         private readonly ReleasePackageSessionAction $releasePackageSession,
-        private readonly CancelVideoSessionAction $cancelVideoSession
-    ) {
-    }
+        private readonly CancelVideoSessionAction $cancelVideoSession,
+        private readonly BookingCancellationPolicyChecker $policyChecker
+    ) {}
 
     public function __invoke(Booking $booking, User $actor, ?string $reason = null): Booking
     {
         return DB::transaction(function () use ($booking, $actor, $reason) {
             $booking = Booking::query()
-                ->with('service')
+                ->with(['service', 'professional.bookingPolicy'])
                 ->whereKey($booking->id)
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if (! $booking->isCancellable()) {
+            if ($actor->id === $booking->client_id) {
+                $this->policyChecker->assertClientCanCancel($booking);
+            } elseif (! $booking->isCancellable()) {
                 throw new ApiException(
                     error: 'InvalidBookingStatusTransition',
                     message: 'La reserva no puede cancelarse en su estado actual.',
                     status: Response::HTTP_CONFLICT
                 );
             }
-
-            $this->ensureCancellationWindowIsOpen($booking, 'CancellationWindowExpired');
 
             $booking->update([
                 'status' => BookingStatus::Cancelled,

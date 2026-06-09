@@ -30,6 +30,11 @@ class BookingPolicy
             || $this->isProfessionalOwner($user, $booking);
     }
 
+    public function viewAvailableActions(User $user, Booking $booking): bool
+    {
+        return $this->isClient($user, $booking);
+    }
+
     private function isClient(User $user, Booking $booking): bool
     {
         return $booking->client_id === $user->id;
