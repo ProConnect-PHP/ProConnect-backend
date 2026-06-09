@@ -31,6 +31,7 @@ use App\Http\Controllers\Video\BookingVideoSessionController;
 use App\Http\Controllers\Video\MyVideoSessionController;
 use App\Http\Controllers\Video\ProfessionalVideoSessionController;
 use App\Http\Controllers\Video\VideoSessionJoinController;
+use App\Modules\VideoSession\Infrastructure\Http\Controllers\JoinVideoSessionController as LiveKitJoinVideoSessionController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -86,6 +87,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/bookings/{booking}/cancel', [BookingController::class, 'cancel']);
         Route::post('/bookings/{booking}/reschedule', [BookingController::class, 'reschedule']);
         Route::get('/video-sessions/my', [MyVideoSessionController::class, 'index']);
+        Route::post('/video-sessions/bookings/{booking}/join', LiveKitJoinVideoSessionController::class);
         Route::post('/video-sessions/{videoSession}/join', [VideoSessionJoinController::class, 'store']);
         Route::post('/payment-intents/{paymentIntent}/simulate-success', [PaymentSimulationController::class, 'success']);
         Route::post('/payment-intents/{paymentIntent}/simulate-failure', [PaymentSimulationController::class, 'failure']);

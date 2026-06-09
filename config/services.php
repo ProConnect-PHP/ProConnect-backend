@@ -38,5 +38,10 @@ return [
     'mapbox' => [
         'public_token' => env('MAPBOX_PUBLIC_TOKEN'),
     ],
-
+    'livekit' => [
+        'url' => env('LIVEKIT_URL', 'ws://localhost:7880'),
+        'api_key' => env('LIVEKIT_API_KEY'),
+        'api_secret' => env('LIVEKIT_API_SECRET'),
+        'token_ttl_seconds' => (int) env('LIVEKIT_TOKEN_TTL_SECONDS', 3600),
+    ],
 ];
