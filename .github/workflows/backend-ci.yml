@@ -74,7 +74,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: '8.4'
           extensions: pdo_pgsql, redis, intl
           coverage: none
 
@@ -89,9 +89,9 @@ jobs:
           path: |
             ~/.composer/cache/files
             vendor
-          key: ${{ runner.os }}-php-8.3-composer-${{ hashFiles('**/composer.lock') }}
+          key: ${{ runner.os }}-php-8.4-composer-${{ hashFiles('**/composer.lock') }}
           restore-keys: |
-            ${{ runner.os }}-php-8.3-composer-
+            ${{ runner.os }}-php-8.4-composer-
 
       - name: Install PHP deps
         run: composer install --no-interaction --prefer-dist
