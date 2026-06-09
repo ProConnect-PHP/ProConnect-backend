@@ -1,0 +1,14 @@
+port: 7880
+
+bind_addresses:
+  - ""
+
+rtc:
+  tcp_port: 7881
+  port_range_start: 60000
+  port_range_end: 60100
+  use_external_ip: false
+  node_ip: 127.0.0.1
+
+keys:
+  proconnect_dev_key: proconnect_dev_secret_please_change_this_32_chars_minimum

@@ -16,16 +16,16 @@ services:
             LARAVEL_SAIL: 1
             XDEBUG_MODE: '${SAIL_XDEBUG_MODE:-off}'
             XDEBUG_CONFIG: '${SAIL_XDEBUG_CONFIG:-client_host=host.docker.internal}'
-            IGNITION_LOCAL_SITES_PATH: '${PWD}'
+            IGNITION_LOCAL_SITES_PATH: '${PWD:-.}'
         volumes:
             - '.:/var/www/html'
         networks:
             - sail
-            - public
         depends_on:
             - proconnect_pgsql
             - proconnect_redis
             - proconnect_mailpit
+
     proconnect_horizon:
         image: sail-8.5/app
         extra_hosts:
@@ -46,6 +46,7 @@ services:
             - proconnect_pgsql
             - proconnect_mailpit
         command: php artisan horizon
+
     proconnect_pgsql:
         image: 'postgres:18-alpine'
         ports:
@@ -71,6 +72,7 @@ services:
                 - '${DB_USERNAME}'
             retries: 3
             timeout: 5s
+
     proconnect_redis:
         image: 'redis:alpine'
         ports:
@@ -86,6 +88,7 @@ services:
                 - ping
             retries: 3
             timeout: 5s
+
     proconnect_mailpit:
         image: 'axllent/mailpit:latest'
         ports:
@@ -93,9 +96,23 @@ services:
             - '${FORWARD_MAILPIT_DASHBOARD_PORT:-8025}:8025'
         networks:
             - sail
+    proconnect_livekit:
+        image: livekit/livekit-server:latest
+        container_name: proconnect_livekit
+        command: --config /etc/livekit/livekit.yaml
+        ports:
+            - '7880:7880'
+            - '7881:7881'
+            - '60000-60100:60000-60100/udp'
+        volumes:
+            - './docker/livekit/livekit.yaml:/etc/livekit/livekit.yaml:ro'
+        networks:
+            - sail
+
 networks:
     sail:
         driver: bridge
+
 volumes:
     sail-pgsql:
         driver: local
