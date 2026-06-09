@@ -49,7 +49,11 @@ Hola,
 Ver ubicación en mapa
 </x-mail::button>
 @endif
-@else
+@endif
+
+@include('emails.booking.video-session', ['booking' => $booking])
+
+@if(! \App\Support\Booking\BookingLocationPresenter::hasPhysicalLocation($booking) && ! $booking->videoSession)
 ## Modalidad remota
 
 Esta reserva es remota. Revisá el detalle de la reserva para acceder a la información disponible.

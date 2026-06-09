@@ -11,6 +11,7 @@ use App\Models\Review\Review;
 use App\Models\Service\Service;
 use App\Models\User\ProfessionalProfile;
 use App\Models\User\User;
+use App\Models\Video\VideoSession;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -103,6 +104,11 @@ class Booking extends Model
     public function payment(): HasOne
     {
         return $this->hasOne(Payment::class);
+    }
+
+    public function videoSession(): HasOne
+    {
+        return $this->hasOne(VideoSession::class);
     }
 
     public function isCancellable(): bool

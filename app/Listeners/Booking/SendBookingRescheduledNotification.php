@@ -18,6 +18,7 @@ class SendBookingRescheduledNotification implements ShouldQueue
             'service',
             'professional.user',
             'client',
+            'videoSession',
         ]);
 
         BookingNotificationRecipients::counterpartUsers($booking, $event->actor)

@@ -51,10 +51,24 @@ return new class extends Migration
             $table->index(['status']);
             $table->index(['expires_at']);
         });
+
+        Schema::table('bookings', function (Blueprint $table) {
+            $table->foreignUuid('client_package_id')
+                ->nullable()
+                ->after('client_id')
+                ->constrained('client_packages')
+                ->nullOnDelete();
+
+            $table->index(['client_package_id']);
+        });
     }
 
     public function down(): void
     {
+        Schema::table('bookings', function (Blueprint $table) {
+            $table->dropConstrainedForeignId('client_package_id');
+        });
+
         Schema::dropIfExists('client_packages');
     }
 };

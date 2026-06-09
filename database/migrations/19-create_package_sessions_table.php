@@ -41,10 +41,32 @@ return new class extends Migration
             $table->index(['professional_id']);
             $table->index(['status']);
         });
+
+        Schema::table('notification_logs', function (Blueprint $table) {
+            $table->foreignUuid('client_package_id')
+                ->nullable()
+                ->after('booking_id')
+                ->constrained('client_packages')
+                ->cascadeOnDelete();
+
+            $table->foreignUuid('package_session_id')
+                ->nullable()
+                ->after('client_package_id')
+                ->constrained('package_sessions')
+                ->cascadeOnDelete();
+
+            $table->index(['client_package_id']);
+            $table->index(['package_session_id']);
+        });
     }
 
     public function down(): void
     {
+        Schema::table('notification_logs', function (Blueprint $table) {
+            $table->dropConstrainedForeignId('package_session_id');
+            $table->dropConstrainedForeignId('client_package_id');
+        });
+
         Schema::dropIfExists('package_sessions');
     }
 };

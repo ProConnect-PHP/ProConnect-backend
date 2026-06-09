@@ -33,10 +33,14 @@ Tu reserva fue confirmada por el profesional.
 Ver ubicacion en mapa
 </x-mail::button>
 @endif
-@else
+@endif
+
+@include('emails.booking.video-session', ['booking' => $booking])
+
+@if(! \App\Support\Booking\BookingLocationPresenter::hasPhysicalLocation($booking) && ! $booking->videoSession)
 ## Modalidad remota
 
-Esta reserva es remota. El enlace de videollamada estara disponible cuando se habilite la integracion correspondiente.
+Revisa el detalle de la reserva para acceder a la informacion disponible.
 @endif
 
 <x-mail::button :url="config('proconnect.frontend_url', config('app.url')) . '/my-bookings/' . $booking->id">

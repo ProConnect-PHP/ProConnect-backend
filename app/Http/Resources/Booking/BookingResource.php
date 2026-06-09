@@ -7,6 +7,7 @@ use App\Http\Resources\Package\ClientPackageResource;
 use App\Http\Resources\Package\PackageSessionResource;
 use App\Http\Resources\Payment\PaymentResource;
 use App\Http\Resources\Public\PublicServiceResource;
+use App\Http\Resources\Video\VideoSessionResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -24,6 +25,13 @@ class BookingResource extends JsonResource
             'ends_at' => $this->ends_at?->toDateTimeString(),
             'status' => $this->status?->value ?? $this->status,
             'modality' => $this->modality,
+            'can_have_video_session' => in_array($this->modality, ['remota', 'hibrida'], true),
+            'has_video_session' => $this->when(
+                $this->relationLoaded('videoSession') || array_key_exists('video_session_exists', $this->getAttributes()),
+                fn () => $this->relationLoaded('videoSession')
+                    ? $this->videoSession !== null
+                    : (bool) $this->video_session_exists
+            ),
             'price_snapshot' => $this->price_snapshot,
             'duration_minutes_snapshot' => $this->duration_minutes_snapshot,
             'confirmed_at' => $this->confirmed_at?->toDateTimeString(),
@@ -34,6 +42,7 @@ class BookingResource extends JsonResource
             'cancellation_reason' => $this->cancellation_reason,
             'reschedule_reason' => $this->reschedule_reason,
             'payment' => new PaymentResource($this->whenLoaded('payment')),
+            'video_session' => new VideoSessionResource($this->whenLoaded('videoSession')),
             'client_package' => new ClientPackageResource($this->whenLoaded('clientPackage')),
             'package_session' => new PackageSessionResource($this->whenLoaded('packageSession')),
             'payment_status' => $this->when(

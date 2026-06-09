@@ -2,6 +2,7 @@
 
 namespace App\Actions\Booking;
 
+use App\Actions\Video\EnsureVideoSessionForBookingAction;
 use App\Enums\Booking\BookingStatus;
 use App\Exceptions\ApiException;
 use App\Events\Booking\BookingConfirmed;
@@ -11,6 +12,11 @@ use Symfony\Component\HttpFoundation\Response;
 
 class ConfirmBookingAction
 {
+    public function __construct(
+        private readonly EnsureVideoSessionForBookingAction $ensureVideoSessionForBooking
+    ) {
+    }
+
     public function __invoke(Booking $booking): Booking
     {
         return DB::transaction(function () use ($booking) {
@@ -32,10 +38,15 @@ class ConfirmBookingAction
                 'confirmed_at' => now(),
             ]);
 
+            if (in_array($booking->modality, ['remota', 'hibrida'], true)) {
+                ($this->ensureVideoSessionForBooking)($booking);
+            }
+
             $booking = $booking->refresh()->load([
                 'service',
                 'professional.user',
                 'client',
+                'videoSession.participants',
             ]);
 
             DB::afterCommit(function () use ($booking): void {

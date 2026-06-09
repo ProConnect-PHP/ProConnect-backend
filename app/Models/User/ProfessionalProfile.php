@@ -12,6 +12,7 @@ use App\Models\Payment\PaymentIntent;
 use App\Models\Review\Review;
 use App\Models\Review\ReviewReply;
 use App\Models\Service\Service;
+use App\Models\Video\VideoSession;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -86,6 +87,11 @@ class ProfessionalProfile extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(Payment::class, 'professional_id');
+    }
+
+    public function videoSessions(): HasMany
+    {
+        return $this->hasMany(VideoSession::class, 'professional_id');
     }
 
     public function reviewReplies(): HasMany

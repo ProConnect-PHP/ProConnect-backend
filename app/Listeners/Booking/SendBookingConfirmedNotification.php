@@ -18,6 +18,7 @@ class SendBookingConfirmedNotification implements ShouldQueue
             'service',
             'professional.user',
             'client',
+            'videoSession',
         ]);
 
         $recipient = BookingNotificationRecipients::clientUser($booking);

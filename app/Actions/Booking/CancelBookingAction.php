@@ -4,6 +4,7 @@ namespace App\Actions\Booking;
 
 use App\Actions\Booking\Concerns\ValidatesBookingRules;
 use App\Actions\Package\ReleasePackageSessionAction;
+use App\Actions\Video\CancelVideoSessionAction;
 use App\Enums\Booking\BookingStatus;
 use App\Exceptions\ApiException;
 use App\Events\Booking\BookingCancelled;
@@ -17,7 +18,8 @@ class CancelBookingAction
     use ValidatesBookingRules;
 
     public function __construct(
-        private readonly ReleasePackageSessionAction $releasePackageSession
+        private readonly ReleasePackageSessionAction $releasePackageSession,
+        private readonly CancelVideoSessionAction $cancelVideoSession
     ) {
     }
 
@@ -47,6 +49,7 @@ class CancelBookingAction
             ]);
 
             ($this->releasePackageSession)($booking);
+            ($this->cancelVideoSession)($booking);
 
             $booking = $booking->refresh()->load([
                 'service.professional.user',
@@ -54,6 +57,7 @@ class CancelBookingAction
                 'client',
                 'clientPackage.packageProduct',
                 'packageSession',
+                'videoSession.participants',
             ]);
 
             DB::afterCommit(function () use ($booking, $actor): void {

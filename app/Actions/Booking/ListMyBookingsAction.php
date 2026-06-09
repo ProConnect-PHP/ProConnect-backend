@@ -12,6 +12,7 @@ class ListMyBookingsAction
     {
         return Booking::query()
             ->with(['service.professional.user', 'professional.user', 'payment', 'clientPackage', 'packageSession'])
+            ->withExists('videoSession')
             ->where('client_id', $user->id)
             ->latest('starts_at')
             ->get();

@@ -17,8 +17,9 @@ use Illuminate\Database\Seeder;
  * 7. Bookings
  * 8. Packages
  * 9. Payments
- * 10. Reviews
- * 11. Review Replies
+ * 10. Video Sessions
+ * 11. Reviews
+ * 12. Review Replies
  */
 class DemoDatabaseSeeder extends Seeder
 {
@@ -37,6 +38,7 @@ class DemoDatabaseSeeder extends Seeder
             DemoBookingSeeder::class,
             DemoPackageSeeder::class,
             DemoPaymentSeeder::class,
+            DemoVideoSessionSeeder::class,
             DemoReviewSeeder::class,
         ]);
     }

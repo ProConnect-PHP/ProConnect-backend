@@ -10,12 +10,6 @@ return new class extends Migration
     {
         Schema::create('bookings', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignUuid('client_package_id')
-                ->nullable()
-                ->after('client_id')
-                ->constrained('client_packages')
-                ->nullOnDelete();
-
             $table->foreignUuid('service_id')
                 ->constrained('services')
                 ->cascadeOnDelete();
@@ -51,7 +45,6 @@ return new class extends Migration
 
             $table->timestamps();
             $table->softDeletes();
-            $table->index(['client_package_id']);
             $table->index(['service_id', 'starts_at', 'ends_at']);
             $table->index(['professional_id', 'starts_at']);
             $table->index(['client_id', 'starts_at']);

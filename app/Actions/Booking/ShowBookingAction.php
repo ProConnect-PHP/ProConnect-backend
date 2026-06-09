@@ -15,6 +15,7 @@ class ShowBookingAction
             'payment',
             'clientPackage.packageProduct',
             'packageSession',
+            'videoSession.participants',
         ]);
     }
 }

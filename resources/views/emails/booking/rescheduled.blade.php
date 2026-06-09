@@ -36,6 +36,8 @@ Ver ubicacion
 @endif
 @endif
 
+@include('emails.booking.video-session', ['booking' => $booking])
+
 <x-mail::button :url="config('proconnect.frontend_url', config('app.url')) . '/my-bookings/' . $booking->id">
 Ver reserva
 </x-mail::button>

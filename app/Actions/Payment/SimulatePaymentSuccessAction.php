@@ -2,6 +2,7 @@
 
 namespace App\Actions\Payment;
 
+use App\Actions\Video\EnsureVideoSessionForBookingAction;
 use App\Enums\Booking\BookingStatus;
 use App\Enums\Payment\PaymentIntentStatus;
 use App\Enums\Payment\PaymentStatus;
@@ -16,6 +17,11 @@ use Symfony\Component\HttpFoundation\Response;
 
 class SimulatePaymentSuccessAction
 {
+    public function __construct(
+        private readonly EnsureVideoSessionForBookingAction $ensureVideoSessionForBooking
+    ) {
+    }
+
     public function __invoke(PaymentIntent $paymentIntent, User $client): Payment
     {
         $result = DB::transaction(function () use ($paymentIntent, $client) {
@@ -37,7 +43,16 @@ class SimulatePaymentSuccessAction
                 $payment = $paymentIntent->payment;
 
                 if ($payment instanceof Payment) {
-                    return $payment->load(['booking']);
+                    $payment->load(['booking']);
+
+                    if (
+                        $payment->booking instanceof Booking
+                        && in_array($payment->booking->modality, ['remota', 'hibrida'], true)
+                    ) {
+                        ($this->ensureVideoSessionForBooking)($payment->booking);
+                    }
+
+                    return $payment->load(['booking.videoSession']);
                 }
 
                 throw new ApiException(
@@ -120,7 +135,11 @@ class SimulatePaymentSuccessAction
                 'paid_at' => $now,
             ]);
 
-            $payment = $payment->refresh()->load(['booking', 'client', 'professional.user']);
+            if (in_array($booking->modality, ['remota', 'hibrida'], true)) {
+                ($this->ensureVideoSessionForBooking)($booking);
+            }
+
+            $payment = $payment->refresh()->load(['booking.videoSession', 'client', 'professional.user']);
 
             DB::afterCommit(function () use ($payment): void {
                 event(new PaymentSucceeded($payment));

@@ -20,10 +20,12 @@ use App\Models\Package\ClientPackage;
 use App\Models\Package\PackageProduct;
 use App\Models\Payment\Payment;
 use App\Models\Payment\PaymentIntent;
+use App\Models\Video\VideoSession;
 use App\Policies\ClientPackagePolicy;
 use App\Policies\PackageProductPolicy;
 use App\Policies\PaymentIntentPolicy;
 use App\Policies\PaymentPolicy;
+use App\Policies\VideoSessionPolicy;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -47,6 +49,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Payment::class, PaymentPolicy::class);
         Gate::policy(PackageProduct::class, PackageProductPolicy::class);
         Gate::policy(ClientPackage::class, ClientPackagePolicy::class);
+        Gate::policy(VideoSession::class, VideoSessionPolicy::class);
 
         // Event::listen(
         //     BookingCreated::class,

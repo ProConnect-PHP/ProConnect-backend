@@ -10,6 +10,8 @@ use App\Models\Package\PackageSession;
 use App\Models\Payment\Payment;
 use App\Models\Payment\PaymentIntent;
 use App\Models\Review\Review;
+use App\Models\Video\VideoSession;
+use App\Models\Video\VideoSessionParticipant;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Attributes\Table;
@@ -88,6 +90,16 @@ class User extends Authenticatable implements JWTSubject
     public function packageSessions(): HasMany
     {
         return $this->hasMany(PackageSession::class, 'client_id');
+    }
+
+    public function clientVideoSessions(): HasMany
+    {
+        return $this->hasMany(VideoSession::class, 'client_id');
+    }
+
+    public function videoSessionParticipants(): HasMany
+    {
+        return $this->hasMany(VideoSessionParticipant::class);
     }
 
     public function getJWTIdentifier(): mixed

@@ -783,6 +783,45 @@ El seeder crea:
 - `payment_intents` failed para probar reintento de pago.
 - `payment_intents` succeeded vinculados a los pagos demo.
 
+## Video Sessions
+
+El sistema soporta sesiones virtuales simuladas para reservas remotas o hibridas. La sala se crea automaticamente al confirmar o pagar una reserva compatible, y tambien puede asegurarse manualmente con un endpoint idempotente.
+
+### Crear sala
+
+```http
+POST /api/v1/bookings/{booking}/video-session
+```
+
+### Unirse
+
+```http
+POST /api/v1/video-sessions/{videoSession}/join
+```
+
+El token de acceso simulado se genera solo al hacer join autenticado. No se envia por email.
+
+### Mis sesiones
+
+```http
+GET /api/v1/video-sessions/my
+```
+
+### Sesiones del profesional
+
+```http
+GET /api/v1/professional/video-sessions
+```
+
+### Configuracion
+
+```env
+VIDEO_PROVIDER=simulator
+VIDEO_JOIN_BEFORE_MINUTES=15
+VIDEO_JOIN_AFTER_MINUTES=120
+VIDEO_SIMULATOR_BASE_URL=http://localhost:4200/video
+```
+
 ## Validar datos demo
 
 Después de ejecutar `migrate:fresh --seed`:

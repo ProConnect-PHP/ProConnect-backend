@@ -24,6 +24,10 @@ use App\Http\Controllers\Review\ReviewController;
 use App\Http\Controllers\Review\ReviewReplyController;
 use App\Http\Controllers\Service\ServiceController;
 use App\Http\Controllers\User\UserController;
+use App\Http\Controllers\Video\BookingVideoSessionController;
+use App\Http\Controllers\Video\MyVideoSessionController;
+use App\Http\Controllers\Video\ProfessionalVideoSessionController;
+use App\Http\Controllers\Video\VideoSessionJoinController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -71,10 +75,14 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/bookings/my', [BookingController::class, 'my']);
         Route::get('/bookings/{booking}', [BookingController::class, 'show']);
+        Route::get('/bookings/{booking}/video-session', [BookingVideoSessionController::class, 'show']);
+        Route::post('/bookings/{booking}/video-session', [BookingVideoSessionController::class, 'store']);
         Route::post('/bookings/{booking}/payment-intents', [BookingPaymentIntentController::class, 'store']);
         Route::post('/bookings/{booking}/review', [BookingReviewController::class, 'store']);
         Route::post('/bookings/{booking}/cancel', [BookingController::class, 'cancel']);
         Route::post('/bookings/{booking}/reschedule', [BookingController::class, 'reschedule']);
+        Route::get('/video-sessions/my', [MyVideoSessionController::class, 'index']);
+        Route::post('/video-sessions/{videoSession}/join', [VideoSessionJoinController::class, 'store']);
         Route::post('/payment-intents/{paymentIntent}/simulate-success', [PaymentSimulationController::class, 'success']);
         Route::post('/payment-intents/{paymentIntent}/simulate-failure', [PaymentSimulationController::class, 'failure']);
         Route::get('/payments/my', [ClientPaymentController::class, 'index']);
@@ -87,6 +95,7 @@ Route::prefix('v1')->group(function () {
         Route::put('/review-replies/{reply}', [ReviewReplyController::class, 'update']);
 
         Route::get('/professional/bookings', [ProfessionalBookingController::class, 'index']);
+        Route::get('/professional/video-sessions', [ProfessionalVideoSessionController::class, 'index']);
         Route::get('/professional/payments', [ProfessionalPaymentController::class, 'index']);
         Route::get('/professional/package-products', [ProfessionalPackageProductController::class, 'index']);
         Route::post('/professional/package-products', [ProfessionalPackageProductController::class, 'store']);

@@ -67,7 +67,7 @@ class SendBookingRemindersCommand extends Command
         $sent = 0;
 
         Booking::query()
-            ->with(['service', 'professional.user', 'client'])
+            ->with(['service', 'professional.user', 'client', 'videoSession'])
             ->whereIn('status', [
                 BookingStatus::Confirmed->value,
                 BookingStatus::Paid->value,
