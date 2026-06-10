@@ -24,6 +24,14 @@ class JoinVideoSessionApiTest extends TestCase
         parent::tearDown();
     }
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config()->set('proconnect.video.join_before_minutes', 15);
+        config()->set('proconnect.video.join_after_minutes', 120);
+    }
+
     public function test_client_can_join_inside_window(): void
     {
         [$videoSession, $client] = $this->videoSessionScenario();

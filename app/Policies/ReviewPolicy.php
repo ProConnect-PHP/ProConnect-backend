@@ -2,11 +2,18 @@
 
 namespace App\Policies;
 
+use App\Models\Booking\Booking;
 use App\Models\Review\Review;
 use App\Models\User\User;
 
 class ReviewPolicy
 {
+    public function create(User $user, Booking $booking): bool
+    {
+        return $user->isClient()
+            && $booking->client_id === $user->id;
+    }
+
     public function update(User $user, Review $review): bool
     {
         return $review->client_id === $user->id;

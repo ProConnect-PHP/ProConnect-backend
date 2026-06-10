@@ -7,7 +7,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Review\StoreReviewRequest;
 use App\Http\Resources\Review\ReviewResource;
 use App\Models\Booking\Booking;
+use App\Models\Review\Review;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Gate;
 use Symfony\Component\HttpFoundation\Response;
 
 class BookingReviewController extends Controller
@@ -17,6 +19,8 @@ class BookingReviewController extends Controller
         StoreReviewRequest $request,
         CreateReviewAction $action
     ): JsonResponse {
+        Gate::authorize('create', [Review::class, $booking]);
+
         $review = $action(
             booking: $booking,
             client: auth('user_jwt')->user(),

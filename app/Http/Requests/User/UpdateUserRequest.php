@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\User;
 
+use App\Enums\UserRole;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -33,9 +34,9 @@ class UpdateUserRequest extends FormRequest
                 'sometimes',
                 'required',
                 'string',
-                Rule::in(['client', 'professional']),
+                Rule::enum(UserRole::class),
                 function ($attribute, $value, $fail) {
-                    if ($this->user()->role === 'professional' && $value === 'client') {
+                    if ($this->user()->isProfessional() && $value === UserRole::Client->value) {
                         $fail('No se puede cambiar el rol de profesional a cliente.');
                     }
                 },

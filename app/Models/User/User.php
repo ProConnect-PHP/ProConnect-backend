@@ -2,7 +2,7 @@
 
 namespace App\Models\User;
 
-
+use App\Enums\UserRole;
 use App\Models\Booking\Booking;
 use App\Models\Contact\Contact;
 use App\Models\Package\ClientPackage;
@@ -30,13 +30,14 @@ use Tymon\JWTAuth\Contracts\JWTSubject;
 #[Table('users')]
 class User extends Authenticatable implements JWTSubject
 {
-    use HasFactory, Notifiable, SoftDeletes, HasUuids;
+    use HasFactory, HasUuids, Notifiable, SoftDeletes;
 
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'role' => UserRole::class,
         ];
     }
 
@@ -47,22 +48,22 @@ class User extends Authenticatable implements JWTSubject
         );
     }
 
-    public function professionalProfile() : HasOne
+    public function professionalProfile(): HasOne
     {
         return $this->hasOne(ProfessionalProfile::class);
     }
 
-    public function contacts() : HasMany
+    public function contacts(): HasMany
     {
         return $this->hasMany(Contact::class);
     }
 
-    public function refreshTokens() : HasOne
+    public function refreshTokens(): HasOne
     {
         return $this->hasOne(RefreshToken::class);
     }
 
-    public function bookings() : HasMany
+    public function bookings(): HasMany
     {
         return $this->hasMany(Booking::class, 'client_id');
     }
@@ -100,6 +101,37 @@ class User extends Authenticatable implements JWTSubject
     public function videoSessionParticipants(): HasMany
     {
         return $this->hasMany(VideoSessionParticipant::class);
+    }
+
+    public function isClient(): bool
+    {
+        return $this->role === UserRole::Client;
+    }
+
+    public function isProfessional(): bool
+    {
+        return $this->role === UserRole::Professional;
+    }
+
+    public function hasRole(UserRole|string $role): bool
+    {
+        $role = is_string($role) ? UserRole::tryFrom($role) : $role;
+
+        return $role !== null && $this->role === $role;
+    }
+
+    /**
+     * @param  array<UserRole|string>  $roles
+     */
+    public function hasAnyRole(array $roles): bool
+    {
+        foreach ($roles as $role) {
+            if ($this->hasRole($role)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function getJWTIdentifier(): mixed

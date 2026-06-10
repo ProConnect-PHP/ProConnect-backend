@@ -3,13 +3,12 @@
 namespace App\Http\Controllers\Package;
 
 use App\Actions\Package\ListMyClientPackagesAction;
-use App\Exceptions\ApiException;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Package\ClientPackageResource;
 use App\Models\Package\ClientPackage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
+use Illuminate\Support\Facades\Gate;
 
 class MyClientPackageController extends Controller
 {
@@ -38,13 +37,7 @@ class MyClientPackageController extends Controller
 
     public function show(ClientPackage $clientPackage): JsonResponse
     {
-        if ($clientPackage->client_id !== auth('user_jwt')->id()) {
-            throw new ApiException(
-                error: 'Forbidden',
-                message: 'No puedes ver este paquete.',
-                status: Response::HTTP_FORBIDDEN
-            );
-        }
+        Gate::authorize('view', $clientPackage);
 
         return response()->json([
             'client_package' => new ClientPackageResource(

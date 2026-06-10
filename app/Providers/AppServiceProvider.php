@@ -16,22 +16,33 @@ use App\Listeners\Booking\SendBookingRescheduledNotification;
 use App\Listeners\Package\SendPackagePurchasedNotifications;
 use App\Listeners\Package\SendPackageSessionReservedNotifications;
 use App\Listeners\Payment\SendPaymentSucceededNotifications;
+use App\Models\Booking\Booking;
 use App\Models\Booking\ProfessionalBookingReminderRule;
 use App\Models\Package\ClientPackage;
 use App\Models\Package\PackageProduct;
 use App\Models\Payment\Payment;
 use App\Models\Payment\PaymentIntent;
+use App\Models\Review\Review;
+use App\Models\Review\ReviewReply;
+use App\Models\Service\Service;
 use App\Models\User\ProfessionalProfile;
 use App\Models\Video\VideoSession;
 use App\Observers\ProfessionalProfileObserver;
+use App\Policies\BookingPolicy;
 use App\Policies\ClientPackagePolicy;
 use App\Policies\PackageProductPolicy;
 use App\Policies\PaymentIntentPolicy;
 use App\Policies\PaymentPolicy;
 use App\Policies\ProfessionalBookingReminderRulePolicy;
+use App\Policies\ReviewPolicy;
+use App\Policies\ReviewReplyPolicy;
+use App\Policies\ServicePolicy;
 use App\Policies\VideoSessionPolicy;
+use App\Support\Security\ApiRateLimit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -49,8 +60,49 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        RateLimiter::for(
+            'api-public',
+            fn (Request $request) => ApiRateLimit::byRole($request, 'api_public')
+        );
+        RateLimiter::for(
+            'api-authenticated',
+            fn (Request $request) => ApiRateLimit::byRole($request, 'api_authenticated')
+        );
+        RateLimiter::for(
+            'auth-login',
+            fn (Request $request) => ApiRateLimit::login($request)
+        );
+        RateLimiter::for(
+            'auth-register',
+            fn (Request $request) => ApiRateLimit::byIp($request, 'auth_register')
+        );
+        RateLimiter::for(
+            'auth-refresh',
+            fn (Request $request) => ApiRateLimit::byIp($request, 'auth_refresh')
+        );
+        RateLimiter::for(
+            'booking-write',
+            fn (Request $request) => ApiRateLimit::byRole($request, 'booking_write')
+        );
+        RateLimiter::for(
+            'payment-actions',
+            fn (Request $request) => ApiRateLimit::byRole($request, 'payment_actions')
+        );
+        RateLimiter::for(
+            'video-join',
+            fn (Request $request) => ApiRateLimit::byRole($request, 'video_join')
+        );
+        RateLimiter::for(
+            'reviews-write',
+            fn (Request $request) => ApiRateLimit::byRole($request, 'reviews_write')
+        );
+
         Gate::policy(PaymentIntent::class, PaymentIntentPolicy::class);
         Gate::policy(Payment::class, PaymentPolicy::class);
+        Gate::policy(Booking::class, BookingPolicy::class);
+        Gate::policy(Service::class, ServicePolicy::class);
+        Gate::policy(Review::class, ReviewPolicy::class);
+        Gate::policy(ReviewReply::class, ReviewReplyPolicy::class);
         Gate::policy(PackageProduct::class, PackageProductPolicy::class);
         Gate::policy(ClientPackage::class, ClientPackagePolicy::class);
         Gate::policy(VideoSession::class, VideoSessionPolicy::class);

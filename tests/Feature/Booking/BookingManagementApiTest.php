@@ -89,7 +89,7 @@ class BookingManagementApiTest extends TestCase
 
         $response
             ->assertForbidden()
-            ->assertJsonPath('error.type', 'ProfessionalProfileRequired');
+            ->assertJsonPath('error.type', 'Forbidden');
     }
 
     public function test_client_can_view_their_booking(): void

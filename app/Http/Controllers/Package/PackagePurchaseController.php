@@ -8,6 +8,7 @@ use App\Http\Requests\Package\PurchasePackageRequest;
 use App\Http\Resources\Package\ClientPackageResource;
 use App\Models\Package\PackageProduct;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Gate;
 
 class PackagePurchaseController extends Controller
 {
@@ -16,6 +17,8 @@ class PackagePurchaseController extends Controller
         PurchasePackageRequest $request,
         PurchasePackageAction $action
     ): JsonResponse {
+        Gate::authorize('purchase', $packageProduct);
+
         $clientPackage = $action(
             packageProduct: $packageProduct,
             client: auth('user_jwt')->user(),

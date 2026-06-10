@@ -49,7 +49,7 @@ class PackageProductApiTest extends TestCase
                 'price' => 5600,
             ])
             ->assertForbidden()
-            ->assertJsonPath('error.type', 'ProfessionalProfileRequired');
+            ->assertJsonPath('error.type', 'Forbidden');
     }
 
     public function test_professional_cannot_create_package_for_another_professionals_service(): void

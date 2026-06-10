@@ -102,6 +102,21 @@ class GenerateLiveKitJoinTokenApiTest extends TestCase
             ->assertJsonPath('error.type', 'Forbidden');
     }
 
+    public function test_unrelated_professional_cannot_request_livekit_credentials(): void
+    {
+        [$booking] = $this->bookingScenario();
+        $otherProfessional = User::factory()->professional()->create();
+        ProfessionalProfile::factory()->create([
+            'user_id' => $otherProfessional->id,
+        ]);
+
+        $this
+            ->withHeaders($this->authHeaders($otherProfessional))
+            ->postJson($this->endpoint($booking))
+            ->assertForbidden()
+            ->assertJsonPath('error.type', 'Forbidden');
+    }
+
     public function test_booking_status_must_allow_video_session(): void
     {
         [$booking, $client] = $this->bookingScenario([
@@ -127,6 +142,25 @@ class GenerateLiveKitJoinTokenApiTest extends TestCase
             ->postJson($this->endpoint($booking))
             ->assertForbidden()
             ->assertJsonPath('error.type', 'Forbidden');
+    }
+
+    public function test_closed_booking_statuses_cannot_request_livekit_credentials(): void
+    {
+        foreach ([
+            BookingStatus::Cancelled,
+            BookingStatus::Completed,
+            BookingStatus::NoShow,
+        ] as $status) {
+            [$booking, $client] = $this->bookingScenario([
+                'status' => $status,
+            ]);
+
+            $this
+                ->withHeaders($this->authHeaders($client))
+                ->postJson($this->endpoint($booking))
+                ->assertForbidden()
+                ->assertJsonPath('error.type', 'Forbidden');
+        }
     }
 
     public function test_paid_in_progress_and_hybrid_bookings_are_allowed(): void

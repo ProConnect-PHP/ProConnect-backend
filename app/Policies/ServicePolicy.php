@@ -7,6 +7,11 @@ use App\Models\User\User;
 
 class ServicePolicy
 {
+    public function create(User $user): bool
+    {
+        return $user->isProfessional();
+    }
+
     public function view(User $user, Service $service): bool
     {
         return $this->ownsService($user, $service);
