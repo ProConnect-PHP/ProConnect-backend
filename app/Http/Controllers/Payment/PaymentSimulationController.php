@@ -10,6 +10,7 @@ use App\Http\Resources\Payment\PaymentIntentResource;
 use App\Http\Resources\Payment\PaymentResource;
 use App\Models\Payment\PaymentIntent;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Gate;
 
 class PaymentSimulationController extends Controller
 {
@@ -17,6 +18,8 @@ class PaymentSimulationController extends Controller
         PaymentIntent $paymentIntent,
         SimulatePaymentSuccessAction $action
     ): JsonResponse {
+        Gate::authorize('simulate', $paymentIntent);
+
         $payment = $action(
             paymentIntent: $paymentIntent,
             client: auth('user_jwt')->user()
@@ -33,6 +36,8 @@ class PaymentSimulationController extends Controller
         SimulatePaymentFailureRequest $request,
         SimulatePaymentFailureAction $action
     ): JsonResponse {
+        Gate::authorize('simulate', $paymentIntent);
+
         $intent = $action(
             paymentIntent: $paymentIntent,
             client: auth('user_jwt')->user(),

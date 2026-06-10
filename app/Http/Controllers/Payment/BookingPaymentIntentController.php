@@ -8,6 +8,7 @@ use App\Http\Requests\Payment\CreatePaymentIntentRequest;
 use App\Http\Resources\Payment\PaymentIntentResource;
 use App\Models\Booking\Booking;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Gate;
 use Symfony\Component\HttpFoundation\Response;
 
 class BookingPaymentIntentController extends Controller
@@ -17,6 +18,8 @@ class BookingPaymentIntentController extends Controller
         CreatePaymentIntentRequest $request,
         CreatePaymentIntentAction $action
     ): JsonResponse {
+        Gate::authorize('pay', $booking);
+
         $intent = $action(
             booking: $booking,
             client: auth('user_jwt')->user(),

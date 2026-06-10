@@ -74,7 +74,7 @@ class ReviewReplyApiTest extends TestCase
 
         $response
             ->assertForbidden()
-            ->assertJsonPath('error.type', 'ProfessionalProfileRequired');
+            ->assertJsonPath('error.type', 'Forbidden');
     }
 
     public function test_cannot_reply_same_review_twice(): void

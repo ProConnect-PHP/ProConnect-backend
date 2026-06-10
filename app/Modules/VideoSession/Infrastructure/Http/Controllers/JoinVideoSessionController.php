@@ -9,6 +9,7 @@ use App\Modules\VideoSession\Application\UseCases\GenerateVideoSessionTokenUseCa
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 final class JoinVideoSessionController extends Controller
 {
@@ -22,6 +23,8 @@ final class JoinVideoSessionController extends Controller
         if (! $user instanceof User) {
             throw new AuthenticationException;
         }
+
+        Gate::forUser($user)->authorize('joinVideoSession', $booking);
 
         $joinData = $useCase->execute(
             booking: $booking,

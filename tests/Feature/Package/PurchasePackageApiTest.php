@@ -89,8 +89,8 @@ class PurchasePackageApiTest extends TestCase
         $this
             ->withHeaders($this->authHeaders($professionalUser))
             ->postJson("/api/v1/package-products/{$packageProduct->id}/purchase")
-            ->assertConflict()
-            ->assertJsonPath('error.type', 'CannotPurchaseOwnPackage');
+            ->assertForbidden()
+            ->assertJsonPath('error.type', 'Forbidden');
     }
 
     private function authHeaders(User $user): array

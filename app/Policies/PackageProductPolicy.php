@@ -7,6 +7,16 @@ use App\Models\User\User;
 
 class PackageProductPolicy
 {
+    public function create(User $user): bool
+    {
+        return $user->isProfessional();
+    }
+
+    public function purchase(User $user, PackageProduct $packageProduct): bool
+    {
+        return $user->isClient();
+    }
+
     public function manage(User $user, PackageProduct $packageProduct): bool
     {
         return $user->professionalProfile?->id === $packageProduct->professional_id;

@@ -16,6 +16,13 @@ class EnsureVideoSessionApiTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config()->set('proconnect.video.provider', 'simulator');
+    }
+
     public function test_client_owner_can_view_video_session_for_their_booking(): void
     {
         [$booking, $client] = $this->bookingScenario();
