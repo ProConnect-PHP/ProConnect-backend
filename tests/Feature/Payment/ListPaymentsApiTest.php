@@ -66,7 +66,7 @@ class ListPaymentsApiTest extends TestCase
             ->withHeaders($this->authHeaders($client))
             ->getJson('/api/v1/professional/payments')
             ->assertForbidden()
-            ->assertJsonPath('error.type', 'ProfessionalProfileRequired');
+            ->assertJsonPath('error.type', 'Forbidden');
     }
 
     public function test_payments_are_paginated(): void

@@ -33,6 +33,7 @@ class ServiceController extends Controller
         StoreServiceRequest $request,
         StoreServiceAction $action
     ): JsonResponse {
+        Gate::authorize('create', Service::class);
 
         $service = $action($request);
 

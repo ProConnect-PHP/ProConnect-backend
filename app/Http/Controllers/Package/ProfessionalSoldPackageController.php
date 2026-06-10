@@ -9,6 +9,7 @@ use App\Http\Resources\Package\ClientPackageResource;
 use App\Models\Package\ClientPackage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Symfony\Component\HttpFoundation\Response;
 
 class ProfessionalSoldPackageController extends Controller
@@ -38,15 +39,7 @@ class ProfessionalSoldPackageController extends Controller
 
     public function show(ClientPackage $clientPackage): JsonResponse
     {
-        $professionalProfile = $this->professionalProfile();
-
-        if ($clientPackage->professional_id !== $professionalProfile->id) {
-            throw new ApiException(
-                error: 'Forbidden',
-                message: 'No puedes ver este paquete vendido.',
-                status: Response::HTTP_FORBIDDEN
-            );
-        }
+        Gate::authorize('view', $clientPackage);
 
         return response()->json([
             'client_package' => new ClientPackageResource(

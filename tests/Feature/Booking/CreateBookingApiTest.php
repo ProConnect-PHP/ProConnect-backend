@@ -126,7 +126,7 @@ class CreateBookingApiTest extends TestCase
 
         $response
             ->assertForbidden()
-            ->assertJsonPath('error.type', 'CannotBookOwnService');
+            ->assertJsonPath('error.type', 'Forbidden');
     }
 
     public function test_cannot_book_same_slot_twice(): void

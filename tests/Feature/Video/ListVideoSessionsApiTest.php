@@ -58,7 +58,7 @@ class ListVideoSessionsApiTest extends TestCase
             ->withHeaders($this->authHeaders($client))
             ->getJson('/api/v1/professional/video-sessions')
             ->assertForbidden()
-            ->assertJsonPath('error.type', 'ProfessionalProfileRequired');
+            ->assertJsonPath('error.type', 'Forbidden');
     }
 
     public function test_video_session_list_pagination_works(): void

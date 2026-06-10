@@ -49,6 +49,8 @@ class ProfessionalPackageProductController extends Controller
         StorePackageProductRequest $request,
         CreatePackageProductAction $action
     ): JsonResponse {
+        Gate::authorize('create', PackageProduct::class);
+
         $packageProduct = $action(
             professionalProfile: $this->professionalProfile(),
             data: $request->validated()
