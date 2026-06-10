@@ -14,6 +14,23 @@ class RateLimitingTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->withServerVariables([
+            'REMOTE_ADDR' => sprintf(
+                '2001:db8:%x:%x:%x:%x:%x:%x',
+                random_int(0, 0xFFFF),
+                random_int(0, 0xFFFF),
+                random_int(0, 0xFFFF),
+                random_int(0, 0xFFFF),
+                random_int(0, 0xFFFF),
+                random_int(0, 0xFFFF),
+            ),
+        ]);
+    }
+
     public function test_guest_public_api_is_rate_limited(): void
     {
         config()->set('security.rate_limits.api_public.guest', 2);
