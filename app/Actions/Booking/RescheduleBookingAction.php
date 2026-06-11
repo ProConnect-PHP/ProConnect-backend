@@ -15,6 +15,7 @@ use App\Services\Booking\BookingReschedulingPolicyChecker;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
+use App\Services\Notification\NotificationService;
 
 class RescheduleBookingAction
 {
@@ -22,7 +23,8 @@ class RescheduleBookingAction
 
     public function __construct(
         private readonly GenerateAvailabilitySlotsAction $generateAvailabilitySlots,
-        private readonly BookingReschedulingPolicyChecker $policyChecker
+        private readonly BookingReschedulingPolicyChecker $policyChecker,
+        private readonly NotificationService $notificationService
     ) {}
 
     public function __invoke(Booking $booking, User $actor, string $startsAt, ?string $reason = null): Booking
@@ -79,6 +81,21 @@ class RescheduleBookingAction
             ]);
 
             DB::afterCommit(function () use ($booking, $actor): void {
+
+                if($actor->id === $booking->client_id){
+                    $recipient = $booking->professional->user;
+                }else{
+                    $recipient = $booking->client;
+                }
+                
+                $this->notificationService->send(
+                    user: $recipient,
+                    type: 'booking.rescheduled',
+                    title: 'Reserva reprogramada',
+                    message: "Tu reserva para el servicio '{$booking->service->name}' ha sido reprogramada para el {$booking->starts_at->format('d/m/Y \a las H:i')}.",
+                    actionRoute: "/bookings/{$booking->id}"
+                );
+
                 event(new BookingRescheduled($booking, $actor));
             });
 

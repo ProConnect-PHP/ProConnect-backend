@@ -13,6 +13,8 @@ use App\Models\Service\Service;
 use App\Models\User\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use App\Services\Notification\NotificationService;
+
 
 class CreateBookingAction
 {
@@ -20,7 +22,8 @@ class CreateBookingAction
 
     public function __construct(
         private readonly GenerateAvailabilitySlotsAction $generateAvailabilitySlots,
-        private readonly ReservePackageSessionAction $reservePackageSession
+        private readonly ReservePackageSessionAction $reservePackageSession,
+        private NotificationService $notificationService
     ) {
     }
 
@@ -73,6 +76,23 @@ class CreateBookingAction
             ]);
 
             DB::afterCommit(function () use ($booking): void {
+                event(new BookingCreated($booking));
+            });
+
+            DB::afterCommit(function () use ($booking, $service): void {
+
+                $professionalUser = $service->professional->user ?? null;
+
+                if ($professionalUser) {
+                    $this->notificationService->send(
+                        user: $professionalUser,
+                        type: 'booking.created',
+                        title: 'Nueva reserva',
+                        message: 'Tienes una nueva reserva pendiente.',
+                        actionRoute: "/professional/bookings/{$booking->id}"
+                    );
+                }
+
                 event(new BookingCreated($booking));
             });
 

@@ -205,28 +205,31 @@ return [
             'queue' => ['default', 'bookings', 'notifications', 'emails'],
             'balance' => 'auto',
             'autoScalingStrategy' => 'time',
-            'maxProcesses' => 1,
+            'maxProcesses' => 5,        // sube un poco en local
             'maxTime' => 0,
             'maxJobs' => 0,
             'memory' => 128,
             'tries' => 3,
-            'timeout' => 90,
+            'timeout' => 120,           // un poco más para desarrollo
             'nice' => 0,
         ],
     ],
 
     'environments' => [
-        'production' => [
+        'local' => [
             'supervisor-1' => [
-                'maxProcesses' => 10,
-                'balanceMaxShift' => 1,
-                'balanceCooldown' => 3,
+                'maxProcesses' => 5,
+                'balance' => 'auto',
+                'tries' => 2,
+                'timeout' => 90,
             ],
         ],
 
-        'local' => [
+        'production' => [
             'supervisor-1' => [
-                'maxProcesses' => 3,
+                'maxProcesses' => 10,
+                'balanceMaxShift' => 2,
+                'balanceCooldown' => 3,
             ],
         ],
     ],

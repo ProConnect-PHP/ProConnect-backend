@@ -41,15 +41,16 @@ services:
             QUEUE_CONNECTION: redis
             CACHE_STORE: redis
             REDIS_HOST: proconnect_redis
+            APP_ENV: local          # Asegura que coincida con horizon.php
         volumes:
             - '.:/var/www/html'
         networks:
             - sail
         depends_on:
-            - proconnect_laravel
-            - proconnect_redis
-            - proconnect_pgsql
-            - proconnect_mailpit
+            proconnect_redis:
+                condition: service_healthy
+            # proconnect_pgsql:   # opcional
+        restart: unless-stopped
         command: php artisan horizon
 
     proconnect_pgsql:
