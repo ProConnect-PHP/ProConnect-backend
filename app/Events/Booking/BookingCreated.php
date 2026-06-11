@@ -3,6 +3,8 @@
 namespace App\Events\Booking;
 
 use App\Models\Booking\Booking;
+use App\Models\User\User;
+use App\Services\Notification\NotificationService;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 

@@ -13,6 +13,7 @@ use App\Models\User\User;
 use App\Services\Booking\BookingCancellationPolicyChecker;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
+use App\Services\Notification\NotificationService;
 
 class CancelBookingAction
 {
@@ -21,7 +22,8 @@ class CancelBookingAction
     public function __construct(
         private readonly ReleasePackageSessionAction $releasePackageSession,
         private readonly CancelVideoSessionAction $cancelVideoSession,
-        private readonly BookingCancellationPolicyChecker $policyChecker
+        private readonly BookingCancellationPolicyChecker $policyChecker,
+        private readonly NotificationService $notificationService
     ) {}
 
     public function __invoke(Booking $booking, User $actor, ?string $reason = null): Booking
@@ -63,6 +65,15 @@ class CancelBookingAction
 
             DB::afterCommit(function () use ($booking, $actor): void {
                 event(new BookingCancelled($booking, $actor));
+
+                // notificación cliente
+                $this->notificationService->send(
+                    user: $booking->client,
+                    type: 'booking.cancelled',
+                    title: 'Reserva cancelada',
+                    message: "Tu reserva para el servicio '{$booking->service->name}' ha sido cancelada.",
+                    actionRoute: "/bookings/{$booking->id}"
+                );
             });
 
             return $booking;

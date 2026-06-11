@@ -32,6 +32,7 @@ use App\Http\Controllers\Video\BookingVideoSessionController;
 use App\Http\Controllers\Video\MyVideoSessionController;
 use App\Http\Controllers\Video\ProfessionalVideoSessionController;
 use App\Http\Controllers\Video\VideoSessionJoinController;
+use App\Http\Controllers\Notification\NotificationController;
 use App\Modules\VideoSession\Infrastructure\Http\Controllers\JoinVideoSessionController as LiveKitJoinVideoSessionController;
 use Illuminate\Support\Facades\Route;
 
@@ -342,5 +343,29 @@ Route::prefix('v1')->group(function (): void {
             Route::post('/reviews/{review}/replies', [ReviewReplyController::class, 'store']);
             Route::put('/review-replies/{reply}', [ReviewReplyController::class, 'update']);
         });
+
+        /*
+        |--------------------------------------------------------------------------
+        | Notifications
+        |--------------------------------------------------------------------------
+        */
+
+        Route::prefix('notifications')
+            ->middleware('throttle:api-authenticated')
+            ->group(function (): void {
+
+                Route::get('/', [NotificationController::class, 'index']); // view list
+
+                // Route::get('/{notification}', [NotificationController::class, 'show']); // view single
+
+                Route::get('/unread-count', [NotificationController::class, 'unreadCount']); 
+
+                Route::post('/mark-all-read', [NotificationController::class, 'markAllAsRead']);
+
+                Route::delete('/delete-all', [NotificationController::class, 'deleteAll']);
+
+                Route::delete('/{notification}', [NotificationController::class, 'destroy']);
+            });
+
     });
 });

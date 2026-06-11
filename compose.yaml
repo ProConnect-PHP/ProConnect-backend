@@ -11,6 +11,7 @@ services:
         ports:
             - '${APP_PORT:-80}:80'
             - '${VITE_PORT:-5173}:${VITE_PORT:-5173}'
+            - '${REVERB_PORT:-8080}:${REVERB_PORT:-8080}'
         environment:
             WWWUSER: '${WWWUSER:-1000}'
             LARAVEL_SAIL: 1
@@ -25,7 +26,11 @@ services:
             - proconnect_pgsql
             - proconnect_redis
             - proconnect_mailpit
-
+        command: >
+            sh -c "
+            php artisan serve --host=0.0.0.0 --port=80 &
+            php artisan reverb:start --host=0.0.0.0 --port=8080
+            "
     proconnect_horizon:
         image: sail-8.5/app
         extra_hosts:
@@ -36,15 +41,16 @@ services:
             QUEUE_CONNECTION: redis
             CACHE_STORE: redis
             REDIS_HOST: proconnect_redis
+            APP_ENV: local          # Asegura que coincida con horizon.php
         volumes:
             - '.:/var/www/html'
         networks:
             - sail
         depends_on:
-            - proconnect_laravel
-            - proconnect_redis
-            - proconnect_pgsql
-            - proconnect_mailpit
+            proconnect_redis:
+                condition: service_healthy
+            # proconnect_pgsql:   # opcional
+        restart: unless-stopped
         command: php artisan horizon
 
     proconnect_pgsql:

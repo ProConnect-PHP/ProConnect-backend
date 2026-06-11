@@ -9,17 +9,20 @@ use App\Events\Booking\BookingConfirmed;
 use App\Models\Booking\Booking;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
+use App\Services\Notification\NotificationService;
 
 class ConfirmBookingAction
 {
     public function __construct(
-        private readonly EnsureVideoSessionForBookingAction $ensureVideoSessionForBooking
+        private readonly EnsureVideoSessionForBookingAction $ensureVideoSessionForBooking,
+        private NotificationService $notificationService
     ) {
     }
 
     public function __invoke(Booking $booking): Booking
     {
         return DB::transaction(function () use ($booking) {
+
             $booking = Booking::query()
                 ->whereKey($booking->id)
                 ->lockForUpdate()
@@ -50,6 +53,17 @@ class ConfirmBookingAction
             ]);
 
             DB::afterCommit(function () use ($booking): void {
+
+                // notificación cliente
+                $this->notificationService->send(
+                    user: $booking->client,
+                    type: 'booking.confirmed',
+                    title: 'Reserva confirmada',
+                    message: "Tu reserva para el servicio '{$booking->service->name}' ha sido confirmada.",
+                    actionRoute: "/bookings/{$booking->id}"
+                );
+                
+                // evento WS
                 event(new BookingConfirmed($booking));
             });
 
