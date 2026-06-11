@@ -16,7 +16,7 @@ use Illuminate\Http\Response;
 
 class AuthController extends Controller
 {
-        /**
+    /**
      * Store a newly created resource in storage.
      */
     public function register(RegisterUserRequest $registerUserRequest, RegisterUserAction $registerUserAction): JsonResponse
@@ -32,23 +32,18 @@ class AuthController extends Controller
                 Response::HTTP_CREATED
             );
     }
+
     public function login(LoginRequest $request, LoginAction $loginAction): JsonResponse
     {
         $result = $loginAction($request);
 
-        if (! $result['access_token']) {
+        if ($result === null) {
             return response()->json([
                 'message' => 'Credenciales incorrectas',
             ], Response::HTTP_UNAUTHORIZED);
         }
 
-        return response()->json([
-            'access_token' => $result['access_token'],
-            'refresh_token' => $result['refresh_token'],
-            'token_type' => 'bearer',
-            'expires_in' => $result['expires_in'],
-            'user' => new UserResource($result['user']),
-        ], Response::HTTP_OK);
+        return response()->json($result, Response::HTTP_OK);
     }
 
     public function logout(LogoutAction $logoutAction): JsonResponse

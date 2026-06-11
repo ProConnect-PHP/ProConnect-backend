@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\ProfessionalProfile\StoreProfessionalProfileRequest;
 use App\Http\Requests\ProfessionalProfile\UpdateProfessionalProfileRequest;
 use App\Http\Resources\ProfessionalProfile\ProfessionalProfileResource;
+use App\Http\Resources\User\UserResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 
@@ -20,7 +21,7 @@ class ProfessionalProfileController extends Controller
 
         $profile = $showProfessionalProfileAction();
 
-        if (!$profile) {
+        if (! $profile) {
             return response()->json([
                 'message' => 'Professional profile not found',
             ], Response::HTTP_NOT_FOUND);
@@ -41,6 +42,7 @@ class ProfessionalProfileController extends Controller
         return response()->json([
             'message' => 'Professional profile created successfully',
             'professional_profile' => new ProfessionalProfileResource($profile),
+            'user' => new UserResource(auth('user_jwt')->user()->refresh()),
         ], Response::HTTP_CREATED);
     }
 

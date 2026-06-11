@@ -19,7 +19,8 @@ class UserResource extends JsonResource
             'name' => $this->name,
             'email' => $this->email,
             'role' => $this->role,
-            'avatar_url' => $this->avatar_url, //Luego se hara con el $disk del FileSystem public de laravel
+            'avatar_url' => $this->avatar_url, // Luego se hara con el $disk del FileSystem public de laravel
+            'has_professional_profile' => $this->professionalProfile()->exists(),
         ];
     }
 }

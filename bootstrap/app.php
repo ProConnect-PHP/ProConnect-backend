@@ -1,6 +1,7 @@
 <?php
 
 use App\Exceptions\ApiExceptionHandler;
+use App\Http\Middleware\EnsureUserCanActAsClient;
 use App\Http\Middleware\EnsureUserHasRole;
 use App\Http\Middleware\ForceJsonResponse;
 use Illuminate\Foundation\Application;
@@ -18,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ])
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
+            'client-capable' => EnsureUserCanActAsClient::class,
             'role' => EnsureUserHasRole::class,
         ]);
 

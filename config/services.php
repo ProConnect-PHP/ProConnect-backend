@@ -44,4 +44,10 @@ return [
         'api_secret' => env('LIVEKIT_API_SECRET'),
         'token_ttl_seconds' => (int) env('LIVEKIT_TOKEN_TTL_SECONDS', 3600),
     ],
+
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI'),
+    ],
 ];

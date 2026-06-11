@@ -10,8 +10,9 @@ class ReviewPolicy
 {
     public function create(User $user, Booking $booking): bool
     {
-        return $user->isClient()
-            && $booking->client_id === $user->id;
+        return $user->canActAsClient()
+            && $booking->client_id === $user->id
+            && $user->professionalProfile?->id !== $booking->professional_id;
     }
 
     public function update(User $user, Review $review): bool

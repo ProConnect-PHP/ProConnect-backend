@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Auth\OAuthController;
 use App\Http\Controllers\Availability\AvailabilityController;
 use App\Http\Controllers\Availability\AvailabilityExceptionController;
 use App\Http\Controllers\Availability\AvailabilityRuleController;
@@ -34,90 +35,225 @@ use App\Http\Controllers\Video\VideoSessionJoinController;
 use App\Modules\VideoSession\Infrastructure\Http\Controllers\JoinVideoSessionController as LiveKitJoinVideoSessionController;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('v1')->group(function () {
-    Route::middleware('throttle:api-public')->group(function () {
+Route::prefix('v1')->group(function (): void {
+    /*
+    |--------------------------------------------------------------------------
+    | Public API
+    |--------------------------------------------------------------------------
+    |
+    | Endpoints públicos consumidos por la landing, búsqueda, detalle de servicios,
+    | profesionales, disponibilidad pública, reseñas públicas y paquetes públicos.
+    |
+    */
+
+    Route::middleware('throttle:api-public')->group(function (): void {
         Route::get('/services/{service}/availability', [AvailabilityController::class, 'show']);
         Route::get('/services/{service}/reviews', [PublicServiceReviewController::class, 'index']);
         Route::get('/services/{service}/package-products', [PublicPackageProductController::class, 'byService']);
 
-        Route::prefix('public')->group(function () {
+        Route::prefix('public')->group(function (): void {
             Route::get('/services', [PublicServiceController::class, 'index']);
             Route::get('/services/{service}', [PublicServiceController::class, 'show']);
+
             Route::get('/professionals/{professionalProfile}', [PublicProfessionalController::class, 'show']);
+
             Route::get('/package-products', [PublicPackageProductController::class, 'index']);
             Route::get('/package-products/{packageProduct}', [PublicPackageProductController::class, 'show']);
         });
     });
 
-    Route::prefix('auth')->group(function () {
+    /*
+    |--------------------------------------------------------------------------
+    | Authentication
+    |--------------------------------------------------------------------------
+    |
+    | Registro, login tradicional, refresh token, logout autenticado y OAuth.
+    |
+    */
+
+    Route::prefix('auth')->group(function (): void {
         Route::post('/register', [AuthController::class, 'register'])
             ->middleware('throttle:auth-register');
+
         Route::post('/login', [AuthController::class, 'login'])
             ->middleware('throttle:auth-login');
+
         Route::post('/refresh', [AuthController::class, 'refresh'])
             ->middleware('throttle:auth-refresh');
 
-        Route::middleware(['auth:user_jwt', 'throttle:api-authenticated'])->group(function () {
+        Route::prefix('oauth')
+            ->middleware('throttle:api-public')
+            ->group(function (): void {
+                Route::get('/{provider}/redirect', [OAuthController::class, 'redirect']);
+                Route::get('/{provider}/callback', [OAuthController::class, 'callback']);
+                Route::post('/exchange', [OAuthController::class, 'exchange']);
+            });
+
+        Route::middleware(['auth:user_jwt', 'throttle:api-authenticated'])->group(function (): void {
             Route::post('/logout', [AuthController::class, 'logout']);
         });
     });
 
-    Route::middleware('auth:user_jwt')->group(function () {
-        Route::middleware('throttle:api-authenticated')->group(function () {
+    /*
+    |--------------------------------------------------------------------------
+    | Authenticated API
+    |--------------------------------------------------------------------------
+    |
+    | Todas las rutas debajo de este bloque requieren usuario autenticado.
+    |
+    */
+
+    Route::middleware('auth:user_jwt')->group(function (): void {
+        /*
+        |--------------------------------------------------------------------------
+        | Current User
+        |--------------------------------------------------------------------------
+        */
+
+        Route::middleware('throttle:api-authenticated')->group(function (): void {
             Route::get('/me', [UserController::class, 'show']);
             Route::put('/me', [UserController::class, 'update']);
         });
 
-        Route::middleware(['role:client', 'throttle:api-authenticated'])->group(function () {
+        Route::middleware(['client-capable', 'throttle:api-authenticated'])->group(function (): void {
             Route::get('/bookings/my', [BookingController::class, 'my']);
-            Route::get('/bookings/{booking}/available-actions', [BookingAvailableActionsController::class, 'show']);
-            Route::get('/video-sessions/my', [MyVideoSessionController::class, 'index']);
-            Route::get('/payments/my', [ClientPaymentController::class, 'index']);
-            Route::get('/client-packages/my', [MyClientPackageController::class, 'index']);
-            Route::get('/client-packages/{clientPackage}', [MyClientPackageController::class, 'show']);
+
+            Route::prefix('professional-profile')->group(function (): void {
+                Route::post('/', [ProfessionalProfileController::class, 'store']);
+                Route::get('/', [ProfessionalProfileController::class, 'show']);
+            });
         });
 
-        Route::middleware('throttle:api-authenticated')->group(function () {
+        /*
+        |--------------------------------------------------------------------------
+        | Shared Booking Read Operations
+        |--------------------------------------------------------------------------
+        |
+        | Lectura de reservas y sesión de video asociada.
+        |
+        */
+
+        Route::middleware('throttle:api-authenticated')->group(function (): void {
             Route::get('/bookings/{booking}', [BookingController::class, 'show']);
             Route::get('/bookings/{booking}/video-session', [BookingVideoSessionController::class, 'show']);
         });
 
-        Route::middleware(['role:client', 'throttle:booking-write'])->group(function () {
+        /*
+        |--------------------------------------------------------------------------
+        | Client Area
+        |--------------------------------------------------------------------------
+        |
+        | Reservas propias, pagos propios, paquetes comprados y sesiones de video
+        | del cliente.
+        |
+        */
+
+        Route::middleware(['client-capable', 'throttle:api-authenticated'])->group(function (): void {
+            Route::get('/bookings/{booking}/available-actions', [BookingAvailableActionsController::class, 'show']);
+
+            Route::get('/video-sessions/my', [MyVideoSessionController::class, 'index']);
+
+            Route::get('/payments/my', [ClientPaymentController::class, 'index']);
+
+            Route::get('/client-packages/my', [MyClientPackageController::class, 'index']);
+            Route::get('/client-packages/{clientPackage}', [MyClientPackageController::class, 'show']);
+        });
+
+        /*
+        |--------------------------------------------------------------------------
+        | Client Booking Writes
+        |--------------------------------------------------------------------------
+        */
+
+        Route::middleware(['client-capable', 'throttle:booking-write'])->group(function (): void {
             Route::post('/services/{service}/bookings', [BookingController::class, 'store']);
         });
 
-        Route::middleware(['role:client', 'throttle:payment-actions'])->group(function () {
+        /*
+        |--------------------------------------------------------------------------
+        | Client Payments and Package Purchases
+        |--------------------------------------------------------------------------
+        */
+
+        Route::middleware(['client-capable', 'throttle:payment-actions'])->group(function (): void {
             Route::post('/bookings/{booking}/payment-intents', [BookingPaymentIntentController::class, 'store']);
+
             Route::post('/payment-intents/{paymentIntent}/simulate-success', [PaymentSimulationController::class, 'success']);
             Route::post('/payment-intents/{paymentIntent}/simulate-failure', [PaymentSimulationController::class, 'failure']);
+
             Route::post('/package-products/{packageProduct}/purchase', [PackagePurchaseController::class, 'store']);
         });
 
-        Route::middleware(['role:client', 'throttle:reviews-write'])->group(function () {
+        /*
+        |--------------------------------------------------------------------------
+        | Client Reviews
+        |--------------------------------------------------------------------------
+        */
+
+        Route::middleware(['client-capable', 'throttle:reviews-write'])->group(function (): void {
             Route::post('/bookings/{booking}/review', [BookingReviewController::class, 'store']);
             Route::put('/reviews/{review}', [ReviewController::class, 'update']);
             Route::delete('/reviews/{review}', [ReviewController::class, 'destroy']);
         });
 
-        Route::middleware(['role:client,professional', 'throttle:booking-write'])->group(function () {
+        /*
+        |--------------------------------------------------------------------------
+        | Shared Booking State Transitions
+        |--------------------------------------------------------------------------
+        |
+        | Acciones permitidas tanto para cliente como para profesional.
+        |
+        */
+
+        Route::middleware(['role:client,professional', 'throttle:booking-write'])->group(function (): void {
             Route::post('/bookings/{booking}/cancel', [BookingController::class, 'cancel']);
             Route::post('/bookings/{booking}/reschedule', [BookingController::class, 'reschedule']);
         });
 
-        Route::middleware(['role:client,professional', 'throttle:video-join'])->group(function () {
+        /*
+        |--------------------------------------------------------------------------
+        | Video Sessions
+        |--------------------------------------------------------------------------
+        |
+        | Creación/obtención de sesiones de video y join con integración LiveKit.
+        |
+        */
+
+        Route::middleware(['role:client,professional', 'throttle:video-join'])->group(function (): void {
             Route::post('/bookings/{booking}/video-session', [BookingVideoSessionController::class, 'store']);
+
             Route::post('/video-sessions/bookings/{booking}/join', LiveKitJoinVideoSessionController::class);
             Route::post('/video-sessions/{videoSession}/join', [VideoSessionJoinController::class, 'store']);
         });
 
-        Route::middleware(['role:professional', 'throttle:api-authenticated'])->group(function () {
-            Route::prefix('professional-profile')->group(function () {
-                Route::post('/', [ProfessionalProfileController::class, 'store']);
-                Route::get('/', [ProfessionalProfileController::class, 'show']);
+        /*
+        |--------------------------------------------------------------------------
+        | Professional Area
+        |--------------------------------------------------------------------------
+        |
+        | Perfil profesional, servicios, agenda, disponibilidad, políticas de reserva,
+        | paquetes vendidos, pagos y sesiones de video del profesional.
+        |
+        */
+
+        Route::middleware(['role:professional', 'throttle:api-authenticated'])->group(function (): void {
+            /*
+            |--------------------------------------------------------------------------
+            | Professional Profile
+            |--------------------------------------------------------------------------
+            */
+
+            Route::prefix('professional-profile')->group(function (): void {
                 Route::put('/', [ProfessionalProfileController::class, 'update']);
             });
 
-            Route::prefix('services')->group(function () {
+            /*
+            |--------------------------------------------------------------------------
+            | Professional Services
+            |--------------------------------------------------------------------------
+            */
+
+            Route::prefix('services')->group(function (): void {
                 Route::get('/my', [ServiceController::class, 'my']);
                 Route::post('/', [ServiceController::class, 'store']);
                 Route::get('/{service}', [ServiceController::class, 'show']);
@@ -125,41 +261,84 @@ Route::prefix('v1')->group(function () {
                 Route::delete('/{service}', [ServiceController::class, 'destroy']);
             });
 
+            /*
+            |--------------------------------------------------------------------------
+            | Professional Bookings
+            |--------------------------------------------------------------------------
+            */
+
             Route::get('/professional/bookings', [ProfessionalBookingController::class, 'index']);
+
             Route::get('/professional/me/booking-policy', [ProfessionalBookingPolicyController::class, 'show']);
             Route::put('/professional/me/booking-policy', [ProfessionalBookingPolicyController::class, 'update']);
+
             Route::get('/professional/me/reminder-rules', [ProfessionalReminderRuleController::class, 'index']);
             Route::post('/professional/me/reminder-rules', [ProfessionalReminderRuleController::class, 'store']);
             Route::put('/professional/me/reminder-rules/{reminderRule}', [ProfessionalReminderRuleController::class, 'update']);
             Route::delete('/professional/me/reminder-rules/{reminderRule}', [ProfessionalReminderRuleController::class, 'destroy']);
+
+            /*
+            |--------------------------------------------------------------------------
+            | Professional Video Sessions and Payments
+            |--------------------------------------------------------------------------
+            */
+
             Route::get('/professional/video-sessions', [ProfessionalVideoSessionController::class, 'index']);
             Route::get('/professional/payments', [ProfessionalPaymentController::class, 'index']);
+
+            /*
+            |--------------------------------------------------------------------------
+            | Professional Packages
+            |--------------------------------------------------------------------------
+            */
+
             Route::get('/professional/package-products', [ProfessionalPackageProductController::class, 'index']);
             Route::post('/professional/package-products', [ProfessionalPackageProductController::class, 'store']);
             Route::get('/professional/package-products/{packageProduct}', [ProfessionalPackageProductController::class, 'show']);
             Route::put('/professional/package-products/{packageProduct}', [ProfessionalPackageProductController::class, 'update']);
             Route::delete('/professional/package-products/{packageProduct}', [ProfessionalPackageProductController::class, 'destroy']);
+
             Route::get('/professional/client-packages', [ProfessionalSoldPackageController::class, 'index']);
             Route::get('/professional/client-packages/{clientPackage}', [ProfessionalSoldPackageController::class, 'show']);
 
-            Route::prefix('services/{service}')->group(function () {
+            /*
+            |--------------------------------------------------------------------------
+            | Service Availability
+            |--------------------------------------------------------------------------
+            */
+
+            Route::prefix('services/{service}')->group(function (): void {
                 Route::get('/availability-rules', [AvailabilityRuleController::class, 'index']);
                 Route::post('/availability-rules', [AvailabilityRuleController::class, 'store']);
+
                 Route::get('/availability-exceptions', [AvailabilityExceptionController::class, 'index']);
                 Route::post('/availability-exceptions', [AvailabilityExceptionController::class, 'store']);
             });
 
             Route::put('/availability-rules/{availabilityRule}', [AvailabilityRuleController::class, 'update']);
             Route::delete('/availability-rules/{availabilityRule}', [AvailabilityRuleController::class, 'destroy']);
+
             Route::put('/availability-exceptions/{availabilityException}', [AvailabilityExceptionController::class, 'update']);
             Route::delete('/availability-exceptions/{availabilityException}', [AvailabilityExceptionController::class, 'destroy']);
         });
 
-        Route::middleware(['role:professional', 'throttle:booking-write'])->group(function () {
+        /*
+        |--------------------------------------------------------------------------
+        | Professional Booking Writes
+        |--------------------------------------------------------------------------
+        */
+
+        Route::middleware(['role:professional', 'throttle:booking-write'])->group(function (): void {
             Route::post('/bookings/{booking}/confirm', [ProfessionalBookingController::class, 'confirm']);
         });
 
-        Route::middleware(['role:professional', 'throttle:reviews-write'])->group(function () {
+        /*
+        |--------------------------------------------------------------------------
+        | Professional Review Replies
+        |--------------------------------------------------------------------------
+        */
+
+        Route::middleware(['role:professional', 'throttle:reviews-write'])->group(function (): void {
             Route::post('/reviews/{review}/replies', [ReviewReplyController::class, 'store']);
             Route::put('/review-replies/{reply}', [ReviewReplyController::class, 'update']);
         });
