@@ -29,7 +29,7 @@ class AuthorizationTest extends TestCase
             ->assertJsonPath('error.type', 'Forbidden');
     }
 
-    public function test_professional_cannot_access_client_only_route(): void
+    public function test_professional_can_access_client_capable_route(): void
     {
         $professional = User::factory()->professional()->create();
         ProfessionalProfile::factory()->create([
@@ -38,8 +38,8 @@ class AuthorizationTest extends TestCase
 
         $this->withHeaders($this->authHeaders($professional))
             ->getJson('/api/v1/bookings/my')
-            ->assertForbidden()
-            ->assertJsonPath('error.type', 'Forbidden');
+            ->assertOk()
+            ->assertJsonPath('bookings', []);
     }
 
     public function test_valid_role_can_access_its_route(): void
@@ -67,6 +67,7 @@ class AuthorizationTest extends TestCase
         $this->assertSame(UserRole::Professional, $professional->role);
         $this->assertTrue($professional->isProfessional());
         $this->assertFalse($professional->hasRole(UserRole::Client));
+        $this->assertTrue($professional->canActAsClient());
     }
 
     public function test_client_can_select_professional_role_and_create_profile(): void

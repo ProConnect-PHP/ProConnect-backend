@@ -113,6 +113,19 @@ class User extends Authenticatable implements JWTSubject
         return $this->role === UserRole::Professional;
     }
 
+    public function canActAsClient(): bool
+    {
+        return in_array($this->role, [
+            UserRole::Client,
+            UserRole::Professional,
+        ], true);
+    }
+
+    public function socialAccounts(): HasMany
+    {
+        return $this->hasMany(UserSocialAccount::class);
+    }
+
     public function hasRole(UserRole|string $role): bool
     {
         $role = is_string($role) ? UserRole::tryFrom($role) : $role;

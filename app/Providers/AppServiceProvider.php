@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Contracts\Auth\IOAuthExchangeCodeStore;
+use App\Contracts\Auth\IOAuthIdentityProvider;
 use App\Events\Booking\BookingCancelled;
 use App\Events\Booking\BookingConfirmed;
 use App\Events\Booking\BookingCreated;
@@ -38,6 +40,8 @@ use App\Policies\ReviewPolicy;
 use App\Policies\ReviewReplyPolicy;
 use App\Policies\ServicePolicy;
 use App\Policies\VideoSessionPolicy;
+use App\Services\Auth\RedisOAuthExchangeCodeStore;
+use App\Services\Auth\SocialiteOAuthIdentityProvider;
 use App\Support\Security\ApiRateLimit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
@@ -52,7 +56,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(
+            IOAuthIdentityProvider::class,
+            SocialiteOAuthIdentityProvider::class
+        );
+
+        $this->app->bind(
+            IOAuthExchangeCodeStore::class,
+            RedisOAuthExchangeCodeStore::class
+        );
     }
 
     /**

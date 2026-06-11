@@ -38,7 +38,7 @@ class BookingPolicy
 
     public function pay(User $user, Booking $booking): bool
     {
-        return $user->isClient() && $this->isClient($user, $booking);
+        return $user->canActAsClient() && $this->isClient($user, $booking);
     }
 
     public function joinVideoSession(User $user, Booking $booking): bool

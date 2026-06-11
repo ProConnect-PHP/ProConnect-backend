@@ -14,7 +14,7 @@ class PackageProductPolicy
 
     public function purchase(User $user, PackageProduct $packageProduct): bool
     {
-        return $user->isClient();
+        return $user->canActAsClient();
     }
 
     public function manage(User $user, PackageProduct $packageProduct): bool
