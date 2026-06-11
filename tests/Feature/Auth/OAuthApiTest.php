@@ -261,6 +261,26 @@ class OAuthApiTest extends TestCase
             ->assertJsonPath('error.type', 'Unauthorized');
     }
 
+    public function test_oauth_exchange_rejects_expired_payload_even_if_cache_entry_remains(): void
+    {
+        $user = User::factory()->create();
+        $code = (string) Str::uuid();
+
+        Cache::put("oauth_exchange:{$code}", [
+            'user_id' => (string) $user->id,
+            'provider' => 'google',
+            'expires_at' => now()->subSecond()->getTimestamp(),
+        ], 600);
+
+        $this->assertTrue(Cache::has("oauth_exchange:{$code}"));
+
+        $this->postJson('/api/v1/auth/oauth/exchange', ['code' => $code])
+            ->assertUnauthorized()
+            ->assertJsonPath('error.type', 'Unauthorized');
+
+        $this->assertFalse(Cache::has("oauth_exchange:{$code}"));
+    }
+
     private function fakeSocialUser(SocialUserData $socialUser): void
     {
         $this->app->instance(

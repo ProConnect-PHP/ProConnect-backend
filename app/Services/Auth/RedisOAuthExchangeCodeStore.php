@@ -7,15 +7,20 @@ use Illuminate\Support\Facades\Cache;
 
 final class RedisOAuthExchangeCodeStore implements IOAuthExchangeCodeStore
 {
+    private const TTL_SECONDS = 120;
+
     public function put(string $code, string $userId, string $provider): void
     {
+        $expiresAt = now()->addSeconds(self::TTL_SECONDS);
+
         Cache::put(
             key: $this->key($code),
             value: [
                 'user_id' => $userId,
                 'provider' => $provider,
+                'expires_at' => $expiresAt->getTimestamp(),
             ],
-            ttl: now()->addMinutes(2),
+            ttl: self::TTL_SECONDS,
         );
     }
 
@@ -25,7 +30,17 @@ final class RedisOAuthExchangeCodeStore implements IOAuthExchangeCodeStore
             fn () => Cache::pull($this->key($code))
         );
 
-        return is_array($payload) ? $payload : null;
+        if (! is_array($payload)) {
+            return null;
+        }
+
+        $expiresAt = $payload['expires_at'] ?? null;
+
+        if (! is_int($expiresAt) || now()->getTimestamp() >= $expiresAt) {
+            return null;
+        }
+
+        return $payload;
     }
 
     private function key(string $code): string
