@@ -9,6 +9,10 @@ class DeleteServiceAction
 {
     public function __invoke(Service $service): void
     {
+        if($service->bookings()->exists()) {
+            throw new \Exception('No se puede eliminar un servicio que tiene reservas asociadas.');
+        }
+
         $service->delete();
     }
 }

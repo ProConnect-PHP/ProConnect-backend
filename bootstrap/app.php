@@ -27,6 +27,9 @@ return Application::configure(basePath: dirname(__DIR__))
             ForceJsonResponse::class,
         ]);
     })
+    ->withProviders([
+    App\Providers\BroadcastServiceProvider::class,   // ← Agrega esta línea
+    ])
     ->withExceptions(function (Exceptions $exceptions): void {
         ApiExceptionHandler::register($exceptions);
     })->create();
