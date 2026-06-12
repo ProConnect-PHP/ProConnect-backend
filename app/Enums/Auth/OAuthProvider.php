@@ -5,6 +5,7 @@ namespace App\Enums\Auth;
 enum OAuthProvider: string
 {
     case Google = 'google';
+    case GitHub = 'github';
 
     public static function values(): array
     {

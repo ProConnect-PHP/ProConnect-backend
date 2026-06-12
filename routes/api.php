@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\ActivityLogController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\OAuthController;
 use App\Http\Controllers\Availability\AvailabilityController;
@@ -10,6 +11,7 @@ use App\Http\Controllers\Booking\BookingController;
 use App\Http\Controllers\Booking\ProfessionalBookingController;
 use App\Http\Controllers\Booking\ProfessionalBookingPolicyController;
 use App\Http\Controllers\Booking\ProfessionalReminderRuleController;
+use App\Http\Controllers\Notification\NotificationController;
 use App\Http\Controllers\Package\MyClientPackageController;
 use App\Http\Controllers\Package\PackagePurchaseController;
 use App\Http\Controllers\Package\ProfessionalPackageProductController;
@@ -47,8 +49,8 @@ Route::prefix('v1')->group(function (): void {
     | Endpoints públicos consumidos por la landing, búsqueda, detalle de servicios,
     | profesionales, disponibilidad pública, reseñas públicas y paquetes públicos.
     |
-    | */
-
+    */
+    Route::get('/admin/activity-logs', [ActivityLogController::class, 'index']);
     Route::middleware('throttle:api-public')->group(function (): void {
         Route::get('/services/{service}/availability', [AvailabilityController::class, 'show']);
         Route::get('/services/{service}/reviews', [PublicServiceReviewController::class, 'index']);
@@ -104,6 +106,7 @@ Route::prefix('v1')->group(function (): void {
     |
     | */
 
+
     Route::middleware('auth:user_jwt')->group(function (): void {
         /*
         |--------------------------------------------------------------------------
@@ -115,6 +118,11 @@ Route::prefix('v1')->group(function (): void {
             Route::get('/me', [UserController::class, 'show']);
             Route::put('/me', [UserController::class, 'update']);
         });
+
+        // Route::middleware(['role:admin', 'throttle:api-authenticated'])
+            // ->prefix('admin')
+            // ->group(function (): void {
+            // });
 
         Route::middleware(['client-capable', 'throttle:api-authenticated'])->group(function (): void {
             Route::get('/bookings/my', [BookingController::class, 'my']);
@@ -354,8 +362,13 @@ Route::prefix('v1')->group(function (): void {
         Route::prefix('notifications')
             ->middleware('throttle:api-authenticated')
             ->group(function (): void {
-                Route::get('/', [NotificationController::class, 'index']);
+
+                Route::get('/', [NotificationController::class, 'index']); // view list
+
+                // Route::get('/{notification}', [NotificationController::class, 'show']); // view single
+
                 Route::get('/unread-count', [NotificationController::class, 'unreadCount']);
+
                 Route::post('/mark-all-read', [NotificationController::class, 'markAllAsRead']);
                 Route::delete('/delete-all', [NotificationController::class, 'deleteAll']);
                 Route::delete('/{notification}', [NotificationController::class, 'destroy']);

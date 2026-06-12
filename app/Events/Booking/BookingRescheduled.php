@@ -14,7 +14,8 @@ class BookingRescheduled
 
     public function __construct(
         public readonly Booking $booking,
-        public readonly ?User $actor = null
-    ) {
-    }
+        public readonly ?User $actor = null,
+        public readonly ?string $oldStartsAt = null,
+        public readonly ?string $oldEndsAt = null,
+    ) {}
 }

@@ -11,10 +11,9 @@ use App\Models\Booking\Booking;
 use App\Models\Package\ClientPackage;
 use App\Models\Service\Service;
 use App\Models\User\User;
+use App\Services\Notification\NotificationService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
-use App\Services\Notification\NotificationService;
-
 
 class CreateBookingAction
 {
@@ -24,8 +23,7 @@ class CreateBookingAction
         private readonly GenerateAvailabilitySlotsAction $generateAvailabilitySlots,
         private readonly ReservePackageSessionAction $reservePackageSession,
         private NotificationService $notificationService
-    ) {
-    }
+    ) {}
 
     public function __invoke(Service $service, User $client, string $startsAt, ?string $clientPackageId = null): Booking
     {
@@ -80,7 +78,6 @@ class CreateBookingAction
             });
 
             DB::afterCommit(function () use ($booking, $service): void {
-
                 $professionalUser = $service->professional->user ?? null;
 
                 if ($professionalUser) {
@@ -92,8 +89,6 @@ class CreateBookingAction
                         actionRoute: "/professional/bookings/{$booking->id}"
                     );
                 }
-
-                event(new BookingCreated($booking));
             });
 
             return $booking;

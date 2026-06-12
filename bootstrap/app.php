@@ -4,6 +4,7 @@ use App\Exceptions\ApiExceptionHandler;
 use App\Http\Middleware\EnsureUserCanActAsClient;
 use App\Http\Middleware\EnsureUserHasRole;
 use App\Http\Middleware\ForceJsonResponse;
+use App\Providers\BroadcastServiceProvider;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -28,7 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withProviders([
-    App\Providers\BroadcastServiceProvider::class,   // ← Agrega esta línea
+        BroadcastServiceProvider::class,
     ])
     ->withExceptions(function (Exceptions $exceptions): void {
         ApiExceptionHandler::register($exceptions);

@@ -2,6 +2,9 @@
 
 namespace App\Exceptions;
 
+use App\Support\ActivityLog\ActivityLogActorMode;
+use App\Support\ActivityLog\ActivityLogEvent;
+use App\Support\ActivityLog\ActivityLogger;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -52,6 +55,17 @@ final class ApiExceptionHandler
         });
 
         $exceptions->render(function (AuthorizationException $e): JsonResponse {
+            app(ActivityLogger::class)->record(
+                event: ActivityLogEvent::SecurityForbidden,
+                severity: 'warning',
+                statusCode: Response::HTTP_FORBIDDEN,
+                metadata: [
+                    'reason' => $e::class,
+                    'route' => request()->route()?->getName(),
+                ],
+                actingAs: self::requestActorMode(),
+            );
+
             return ApiExceptionRenderer::render(
                 error: 'Forbidden',
                 message: 'No tienes permisos para realizar esta acción.',
@@ -60,6 +74,17 @@ final class ApiExceptionHandler
         });
 
         $exceptions->render(function (ThrottleRequestsException $e): JsonResponse {
+            app(ActivityLogger::class)->record(
+                event: ActivityLogEvent::SecurityRateLimited,
+                severity: 'warning',
+                statusCode: Response::HTTP_TOO_MANY_REQUESTS,
+                metadata: [
+                    'path' => request()->path(),
+                    'ip' => request()->ip(),
+                ],
+                actingAs: self::requestActorMode(),
+            );
+
             return ApiExceptionRenderer::render(
                 error: 'TooManyRequests',
                 message: 'Demasiadas solicitudes. Intenta más tarde.',
@@ -68,6 +93,39 @@ final class ApiExceptionHandler
         });
 
         $exceptions->render(function (ApiException $e): JsonResponse {
+            if ($e->error() === 'BookingSlotAlreadyTaken') {
+                $service = request()->route('service');
+                $serviceId = is_object($service) && method_exists($service, 'getKey')
+                    ? $service->getKey()
+                    : $service;
+
+                app(ActivityLogger::class)->record(
+                    event: ActivityLogEvent::BookingConflictDetected,
+                    entityType: 'service',
+                    entityId: $serviceId,
+                    severity: 'warning',
+                    statusCode: $e->status(),
+                    metadata: [
+                        'service_id' => $serviceId,
+                        'requested_start' => request()->input('starts_at'),
+                        'client_id' => request()->user('user_jwt')?->getKey(),
+                        'reason' => 'slot_already_taken',
+                    ],
+                    actingAs: self::requestActorMode(),
+                );
+            } elseif ($e->status() === Response::HTTP_FORBIDDEN) {
+                app(ActivityLogger::class)->record(
+                    event: ActivityLogEvent::SecurityForbidden,
+                    severity: 'warning',
+                    statusCode: $e->status(),
+                    metadata: [
+                        'reason' => $e->error(),
+                        'path' => request()->path(),
+                    ],
+                    actingAs: self::requestActorMode(),
+                );
+            }
+
             return ApiExceptionRenderer::render(
                 error: $e->error(),
                 message: $e->getMessage(),
@@ -116,11 +174,63 @@ final class ApiExceptionHandler
                 'message' => $e->getMessage(),
             ]);
 
+            app(ActivityLogger::class)->record(
+                event: ActivityLogEvent::SystemError,
+                severity: 'error',
+                statusCode: Response::HTTP_INTERNAL_SERVER_ERROR,
+                metadata: [
+                    'exception' => $e::class,
+                    'message' => app()->isProduction()
+                        ? 'Internal application error.'
+                        : mb_substr($e->getMessage(), 0, 500),
+                    'path' => request()->path(),
+                    'request_id' => request()->headers->get('X-Request-Id'),
+                ],
+                actingAs: ActivityLogActorMode::System,
+            );
+
             return ApiExceptionRenderer::render(
                 error: 'InternalServerError',
                 message: 'Ocurrió un error interno. Intenta nuevamente más tarde.',
                 status: Response::HTTP_INTERNAL_SERVER_ERROR
             );
         });
+    }
+
+    private static function requestActorMode(): ActivityLogActorMode
+    {
+        $user = request()->user('user_jwt');
+
+        if (! $user) {
+            return ActivityLogActorMode::Guest;
+        }
+
+        $booking = request()->route('booking');
+
+        if (
+            is_object($booking)
+            && isset($booking->client_id)
+            && in_array(request()->route()?->getActionMethod(), ['cancel', 'reschedule'], true)
+        ) {
+            return $booking->client_id === $user->id
+                ? ActivityLogActorMode::Client
+                : ActivityLogActorMode::Professional;
+        }
+
+        $middleware = request()->route()?->gatherMiddleware() ?? [];
+
+        if (in_array('client-capable', $middleware, true)) {
+            return ActivityLogActorMode::Client;
+        }
+
+        if (in_array('role:professional', $middleware, true)) {
+            return ActivityLogActorMode::Professional;
+        }
+
+        if (in_array('role:admin', $middleware, true)) {
+            return ActivityLogActorMode::Admin;
+        }
+
+        return ActivityLogActorMode::fromRole($user->role);
     }
 }

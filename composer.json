@@ -15,6 +15,7 @@
         "laravel/horizon": "^5.47",
         "laravel/socialite": "^5.27",
         "laravel/tinker": "^3.0",
+        "mongodb/laravel-mongodb": "^5.8",
         "resend/resend-laravel": "^1.4",
         "tymon/jwt-auth": "^2.3"
     },

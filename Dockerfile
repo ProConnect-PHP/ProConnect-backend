@@ -6,7 +6,8 @@ RUN apk add --no-cache \
 
 RUN docker-php-ext-install pdo pdo_pgsql intl opcache pcntl
 
-RUN pecl install redis && docker-php-ext-enable redis
+RUN pecl install redis mongodb \
+    && docker-php-ext-enable redis mongodb
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 

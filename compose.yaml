@@ -26,8 +26,12 @@ services:
             - proconnect_pgsql
             - proconnect_redis
             - proconnect_mailpit
-        command: php artisan serve --host=0.0.0.0 --port=80
-
+            - proconnect_mongodb
+        command: >
+            sh -c "
+            php artisan serve --host=0.0.0.0 --port=80 &
+            php artisan reverb:start --host=0.0.0.0 --port=8080
+            "
     proconnect_horizon:
         image: sail-8.5/app
         extra_hosts:
@@ -46,6 +50,8 @@ services:
         depends_on:
             proconnect_redis:
                 condition: service_healthy
+            proconnect_mongodb:
+                condition: service_started
             # proconnect_pgsql:   # opcional
         restart: unless-stopped
         command: php artisan horizon
@@ -92,6 +98,20 @@ services:
             retries: 3
             timeout: 5s
 
+    proconnect_mongodb:
+        image: 'mongo:7'
+        restart: unless-stopped
+        ports:
+            - '${MONGODB_PORT:-27017}:27017'
+        environment:
+            MONGO_INITDB_ROOT_USERNAME: '${MONGODB_USERNAME:-proconnect}'
+            MONGO_INITDB_ROOT_PASSWORD: '${MONGODB_PASSWORD:-secret}'
+            MONGO_INITDB_DATABASE: '${MONGODB_DATABASE:-proconnect_logs}'
+        volumes:
+            - 'proconnect-mongodb:/data/db'
+        networks:
+            - sail
+
     proconnect_mailpit:
         image: 'axllent/mailpit:latest'
         ports:
@@ -120,4 +140,6 @@ volumes:
     sail-pgsql:
         driver: local
     sail-redis:
+        driver: local
+    proconnect-mongodb:
         driver: local

@@ -8,9 +8,15 @@ use App\Events\Booking\BookingCancelled;
 use App\Events\Booking\BookingConfirmed;
 use App\Events\Booking\BookingCreated;
 use App\Events\Booking\BookingRescheduled;
+use App\Events\Notification\NotificationCreated;
 use App\Events\Package\PackagePurchased;
 use App\Events\Package\PackageSessionReserved;
+use App\Events\Payment\PaymentFailed;
 use App\Events\Payment\PaymentSucceeded;
+use App\Events\Video\VideoSessionCreated;
+use App\Events\Video\VideoSessionEnded;
+use App\Events\Video\VideoSessionJoined;
+use App\Listeners\ActivityLog\LogDomainActivity;
 use App\Listeners\Booking\SendBookingCancelledNotification;
 use App\Listeners\Booking\SendBookingConfirmedNotification;
 use App\Listeners\Booking\SendBookingCreatedNotification;
@@ -42,6 +48,7 @@ use App\Policies\ServicePolicy;
 use App\Policies\VideoSessionPolicy;
 use App\Services\Auth\RedisOAuthExchangeCodeStore;
 use App\Services\Auth\SocialiteOAuthIdentityProvider;
+use App\Support\ActivityLog\ActivityLogger;
 use App\Support\Security\ApiRateLimit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
@@ -56,6 +63,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->singleton(ActivityLogger::class);
+
         $this->app->bind(
             IOAuthIdentityProvider::class,
             SocialiteOAuthIdentityProvider::class
@@ -153,5 +162,22 @@ class AppServiceProvider extends ServiceProvider
             PackageSessionReserved::class,
             SendPackageSessionReservedNotifications::class
         );
+
+        foreach ([
+            BookingCreated::class,
+            BookingConfirmed::class,
+            BookingCancelled::class,
+            BookingRescheduled::class,
+            PaymentSucceeded::class,
+            PaymentFailed::class,
+            PackagePurchased::class,
+            PackageSessionReserved::class,
+            VideoSessionCreated::class,
+            VideoSessionJoined::class,
+            VideoSessionEnded::class,
+            NotificationCreated::class,
+        ] as $activityEvent) {
+            Event::listen($activityEvent, LogDomainActivity::class);
+        }
     }
 }

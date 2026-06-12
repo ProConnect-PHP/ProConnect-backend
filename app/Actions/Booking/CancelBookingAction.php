@@ -11,9 +11,9 @@ use App\Exceptions\ApiException;
 use App\Models\Booking\Booking;
 use App\Models\User\User;
 use App\Services\Booking\BookingCancellationPolicyChecker;
+use App\Services\Notification\NotificationService;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
-use App\Services\Notification\NotificationService;
 
 class CancelBookingAction
 {
@@ -45,6 +45,8 @@ class CancelBookingAction
                 );
             }
 
+            $previousStatus = $booking->status;
+
             $booking->update([
                 'status' => BookingStatus::Cancelled,
                 'cancelled_at' => now(),
@@ -63,8 +65,8 @@ class CancelBookingAction
                 'videoSession.participants',
             ]);
 
-            DB::afterCommit(function () use ($booking, $actor): void {
-                event(new BookingCancelled($booking, $actor));
+            DB::afterCommit(function () use ($booking, $actor, $previousStatus): void {
+                event(new BookingCancelled($booking, $actor, $previousStatus));
 
                 // notificación cliente
                 $this->notificationService->send(
