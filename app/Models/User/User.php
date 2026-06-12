@@ -25,19 +25,21 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Tymon\JWTAuth\Contracts\JWTSubject;
 
-#[Fillable(['name', 'email', 'password', 'oauth_provider', 'oauth_provider_id', 'role', 'avatar_url'])]
+#[Fillable(['name', 'email', 'password', 'oauth_provider', 'oauth_provider_id', 'role', 'avatar_url', 'password_changed_at'])]
 #[Hidden(['password', 'remember_token', 'email_verified_at', 'created_at', 'updated_at', 'deleted_at'])]
 #[Table('users')]
 class User extends Authenticatable implements JWTSubject
 {
     use HasFactory, HasUuids, Notifiable, SoftDeletes;
 
+    // 2. REGISTRAMOS EL CAST COMO DATETIME PARA QUE CARBON HAGA LA MATEMÁTICA DE FECHAS
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'role' => UserRole::class,
+            'password_changed_at' => 'datetime',
         ];
     }
 

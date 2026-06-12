@@ -33,8 +33,10 @@ use App\Http\Controllers\Video\MyVideoSessionController;
 use App\Http\Controllers\Video\ProfessionalVideoSessionController;
 use App\Http\Controllers\Video\VideoSessionJoinController;
 use App\Http\Controllers\Notification\NotificationController;
+use App\Http\Controllers\Password\ResetPasswordController;
 use App\Modules\VideoSession\Infrastructure\Http\Controllers\JoinVideoSessionController as LiveKitJoinVideoSessionController;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Http\Request;
 
 Route::prefix('v1')->group(function (): void {
     /*
@@ -45,7 +47,7 @@ Route::prefix('v1')->group(function (): void {
     | Endpoints públicos consumidos por la landing, búsqueda, detalle de servicios,
     | profesionales, disponibilidad pública, reseñas públicas y paquetes públicos.
     |
-    */
+    | */
 
     Route::middleware('throttle:api-public')->group(function (): void {
         Route::get('/services/{service}/availability', [AvailabilityController::class, 'show']);
@@ -70,7 +72,7 @@ Route::prefix('v1')->group(function (): void {
     |
     | Registro, login tradicional, refresh token, logout autenticado y OAuth.
     |
-    */
+    | */
 
     Route::prefix('auth')->group(function (): void {
         Route::post('/register', [AuthController::class, 'register'])
@@ -82,13 +84,11 @@ Route::prefix('v1')->group(function (): void {
         Route::post('/refresh', [AuthController::class, 'refresh'])
             ->middleware('throttle:auth-refresh');
 
-        Route::prefix('oauth')
-            ->middleware('throttle:api-public')
-            ->group(function (): void {
-                Route::get('/{provider}/redirect', [OAuthController::class, 'redirect']);
-                Route::get('/{provider}/callback', [OAuthController::class, 'callback']);
-                Route::post('/exchange', [OAuthController::class, 'exchange']);
-            });
+        Route::match(['post', 'put', 'patch'], '/account/password-reset', [ResetPasswordController::class, 'sendResetLink'])
+        ->middleware('throttle:api-public');
+
+    Route::match(['post', 'put', 'patch'], '/password-update', [ResetPasswordController::class, 'updatePassword'])
+        ->middleware('throttle:api-public');
 
         Route::middleware(['auth:user_jwt', 'throttle:api-authenticated'])->group(function (): void {
             Route::post('/logout', [AuthController::class, 'logout']);
@@ -102,7 +102,7 @@ Route::prefix('v1')->group(function (): void {
     |
     | Todas las rutas debajo de este bloque requieren usuario autenticado.
     |
-    */
+    | */
 
     Route::middleware('auth:user_jwt')->group(function (): void {
         /*
@@ -119,10 +119,21 @@ Route::prefix('v1')->group(function (): void {
         Route::middleware(['client-capable', 'throttle:api-authenticated'])->group(function (): void {
             Route::get('/bookings/my', [BookingController::class, 'my']);
 
+            // Corregido: Se removió el bloque duplicado y erróneo de password-reset que requería token JWT
+
             Route::prefix('professional-profile')->group(function (): void {
                 Route::post('/', [ProfessionalProfileController::class, 'store']);
                 Route::get('/', [ProfessionalProfileController::class, 'show']);
             });
+        });
+
+        /*
+        |--------------------------------------------------------------------------
+        | Client Booking Writes
+        |--------------------------------------------------------------------------
+        */
+        Route::middleware(['client-capable', 'throttle:booking-write'])->group(function (): void {
+            Route::post('/services/{service}/bookings', [BookingController::class, 'store']);
         });
 
         /*
@@ -132,7 +143,7 @@ Route::prefix('v1')->group(function (): void {
         |
         | Lectura de reservas y sesión de video asociada.
         |
-        */
+        | */
 
         Route::middleware('throttle:api-authenticated')->group(function (): void {
             Route::get('/bookings/{booking}', [BookingController::class, 'show']);
@@ -147,7 +158,7 @@ Route::prefix('v1')->group(function (): void {
         | Reservas propias, pagos propios, paquetes comprados y sesiones de video
         | del cliente.
         |
-        */
+        | */
 
         Route::middleware(['client-capable', 'throttle:api-authenticated'])->group(function (): void {
             Route::get('/bookings/{booking}/available-actions', [BookingAvailableActionsController::class, 'show']);
@@ -158,16 +169,6 @@ Route::prefix('v1')->group(function (): void {
 
             Route::get('/client-packages/my', [MyClientPackageController::class, 'index']);
             Route::get('/client-packages/{clientPackage}', [MyClientPackageController::class, 'show']);
-        });
-
-        /*
-        |--------------------------------------------------------------------------
-        | Client Booking Writes
-        |--------------------------------------------------------------------------
-        */
-
-        Route::middleware(['client-capable', 'throttle:booking-write'])->group(function (): void {
-            Route::post('/services/{service}/bookings', [BookingController::class, 'store']);
         });
 
         /*
@@ -204,7 +205,7 @@ Route::prefix('v1')->group(function (): void {
         |
         | Acciones permitidas tanto para cliente como para profesional.
         |
-        */
+        | */
 
         Route::middleware(['role:client,professional', 'throttle:booking-write'])->group(function (): void {
             Route::post('/bookings/{booking}/cancel', [BookingController::class, 'cancel']);
@@ -218,7 +219,7 @@ Route::prefix('v1')->group(function (): void {
         |
         | Creación/obtención de sesiones de video y join con integración LiveKit.
         |
-        */
+        | */
 
         Route::middleware(['role:client,professional', 'throttle:video-join'])->group(function (): void {
             Route::post('/bookings/{booking}/video-session', [BookingVideoSessionController::class, 'store']);
@@ -235,7 +236,7 @@ Route::prefix('v1')->group(function (): void {
         | Perfil profesional, servicios, agenda, disponibilidad, políticas de reserva,
         | paquetes vendidos, pagos y sesiones de video del profesional.
         |
-        */
+        | */
 
         Route::middleware(['role:professional', 'throttle:api-authenticated'])->group(function (): void {
             /*
@@ -353,19 +354,15 @@ Route::prefix('v1')->group(function (): void {
         Route::prefix('notifications')
             ->middleware('throttle:api-authenticated')
             ->group(function (): void {
-
-                Route::get('/', [NotificationController::class, 'index']); // view list
-
-                // Route::get('/{notification}', [NotificationController::class, 'show']); // view single
-
-                Route::get('/unread-count', [NotificationController::class, 'unreadCount']); 
-
+                Route::get('/', [NotificationController::class, 'index']);
+                Route::get('/unread-count', [NotificationController::class, 'unreadCount']);
                 Route::post('/mark-all-read', [NotificationController::class, 'markAllAsRead']);
-
                 Route::delete('/delete-all', [NotificationController::class, 'deleteAll']);
-
                 Route::delete('/{notification}', [NotificationController::class, 'destroy']);
             });
-
     });
 });
+
+Route::get('/password-reset/{token}', function (Request $request) {
+    return redirect()->away(config('app.frontend_url', 'http://localhost:4200') . '/reset-password?token=' . $request->token . '&email=' . $request->email);
+})->name('password.reset');

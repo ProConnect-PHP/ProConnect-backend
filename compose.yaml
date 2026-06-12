@@ -26,11 +26,8 @@ services:
             - proconnect_pgsql
             - proconnect_redis
             - proconnect_mailpit
-        command: >
-            sh -c "
-            php artisan serve --host=0.0.0.0 --port=80 &
-            php artisan reverb:start --host=0.0.0.0 --port=8080
-            "
+        command: php artisan serve --host=0.0.0.0 --port=80
+
     proconnect_horizon:
         image: sail-8.5/app
         extra_hosts:
