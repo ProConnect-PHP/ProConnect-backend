@@ -11,7 +11,6 @@ use App\Http\Controllers\Booking\BookingController;
 use App\Http\Controllers\Booking\ProfessionalBookingController;
 use App\Http\Controllers\Booking\ProfessionalBookingPolicyController;
 use App\Http\Controllers\Booking\ProfessionalReminderRuleController;
-use App\Http\Controllers\Notification\NotificationController;
 use App\Http\Controllers\Package\MyClientPackageController;
 use App\Http\Controllers\Package\PackagePurchaseController;
 use App\Http\Controllers\Package\ProfessionalPackageProductController;
