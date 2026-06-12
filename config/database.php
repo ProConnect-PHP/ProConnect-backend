@@ -99,6 +99,19 @@ return [
             'sslmode' => env('DB_SSLMODE', 'prefer'),
         ],
 
+        'mongodb' => [
+            'driver' => 'mongodb',
+            'dsn' => env(
+                'MONGODB_URI',
+                'mongodb://proconnect:secret@proconnect_mongodb:27017/proconnect_logs?authSource=admin'
+            ),
+            'database' => env('MONGODB_DATABASE', 'proconnect_logs'),
+            'options' => [
+                'serverSelectionTimeoutMS' => (int) env('MONGODB_SERVER_SELECTION_TIMEOUT_MS', 500),
+                'connectTimeoutMS' => (int) env('MONGODB_CONNECT_TIMEOUT_MS', 500),
+            ],
+        ],
+
         'sqlsrv' => [
             'driver' => 'sqlsrv',
             'url' => env('DB_URL'),

@@ -4,20 +4,19 @@ namespace App\Actions\Booking;
 
 use App\Actions\Video\EnsureVideoSessionForBookingAction;
 use App\Enums\Booking\BookingStatus;
-use App\Exceptions\ApiException;
 use App\Events\Booking\BookingConfirmed;
+use App\Exceptions\ApiException;
 use App\Models\Booking\Booking;
+use App\Services\Notification\NotificationService;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
-use App\Services\Notification\NotificationService;
 
 class ConfirmBookingAction
 {
     public function __construct(
         private readonly EnsureVideoSessionForBookingAction $ensureVideoSessionForBooking,
         private NotificationService $notificationService
-    ) {
-    }
+    ) {}
 
     public function __invoke(Booking $booking): Booking
     {
@@ -53,6 +52,7 @@ class ConfirmBookingAction
             ]);
 
             DB::afterCommit(function () use ($booking): void {
+                event(new BookingConfirmed($booking));
 
                 // notificación cliente
                 $this->notificationService->send(
@@ -62,9 +62,6 @@ class ConfirmBookingAction
                     message: "Tu reserva para el servicio '{$booking->service->name}' ha sido confirmada.",
                     actionRoute: "/bookings/{$booking->id}"
                 );
-                
-                // evento WS
-                event(new BookingConfirmed($booking));
             });
 
             return $booking;

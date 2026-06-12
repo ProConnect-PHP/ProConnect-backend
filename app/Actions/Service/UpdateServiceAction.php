@@ -4,19 +4,40 @@ namespace App\Actions\Service;
 
 use App\Http\Requests\Service\UpdateServiceRequest;
 use App\Models\Service\Service;
-use App\Models\User\User;
 use App\Services\Notification\NotificationService;
+use App\Support\ActivityLog\ActivityLogActorMode;
+use App\Support\ActivityLog\ActivityLogEvent;
+use App\Support\ActivityLog\ActivityLogger;
 
 class UpdateServiceAction
 {
     public function __construct(
-        private NotificationService $notificationService
+        private NotificationService $notificationService,
+        private readonly ActivityLogger $activityLogger,
     ) {}
 
     public function __invoke(UpdateServiceRequest $request, Service $service): Service
     {
-        $service->update($request->validated());
+        $data = $request->validated();
+        $service->update($data);
         $service = $service->refresh();
+
+        $this->activityLogger->record(
+            event: ActivityLogEvent::ServiceUpdated,
+            entityType: 'service',
+            entityId: $service->id,
+            entityOwnerId: $service->professional_id,
+            metadata: [
+                'service_id' => $service->id,
+                'professional_id' => $service->professional_id,
+                'changed_fields' => array_keys($data),
+                'modality' => $service->modality,
+                'price' => $service->price,
+                'duration_minutes' => $service->duration_minutes,
+                'is_active' => $service->is_active,
+            ],
+            actingAs: ActivityLogActorMode::Professional,
+        );
 
         $clients = $this->resolveClients($service);
 

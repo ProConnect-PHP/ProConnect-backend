@@ -7,12 +7,19 @@ use App\Exceptions\ApiException;
 use App\Http\Requests\ProfessionalProfile\StoreProfessionalProfileRequest;
 use App\Models\User\ProfessionalProfile;
 use App\Models\User\User;
+use App\Support\ActivityLog\ActivityLogActorMode;
+use App\Support\ActivityLog\ActivityLogEvent;
+use App\Support\ActivityLog\ActivityLogger;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 
 class StoreProfessionalProfileAction
 {
+    public function __construct(
+        private readonly ActivityLogger $activityLogger,
+    ) {}
+
     public function __invoke(
         StoreProfessionalProfileRequest $request
     ): ProfessionalProfile {
@@ -22,7 +29,9 @@ class StoreProfessionalProfileAction
             throw new AuthenticationException;
         }
 
-        return DB::transaction(function () use ($request, $user): ProfessionalProfile {
+        $previousRole = $user->role;
+
+        $profile = DB::transaction(function () use ($request, $user): ProfessionalProfile {
             $user = User::query()
                 ->whereKey($user->id)
                 ->lockForUpdate()
@@ -49,5 +58,24 @@ class StoreProfessionalProfileAction
 
             return $profile->refresh();
         });
+
+        $user = $user->refresh();
+
+        $this->activityLogger->record(
+            event: ActivityLogEvent::ProfessionalProfileCreated,
+            entityType: 'professional_profile',
+            entityId: $profile->id,
+            entityOwnerId: $user->id,
+            metadata: [
+                'user_id' => $user->id,
+                'previous_role' => $previousRole,
+                'new_role' => $user->role,
+                'bio_length' => mb_strlen((string) $request->validated('bio')),
+            ],
+            actor: $user,
+            actingAs: ActivityLogActorMode::Professional,
+        );
+
+        return $profile;
     }
 }

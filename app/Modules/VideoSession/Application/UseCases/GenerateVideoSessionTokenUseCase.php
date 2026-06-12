@@ -9,6 +9,9 @@ use App\Modules\VideoSession\Application\DTO\JoinVideoSessionData;
 use App\Modules\VideoSession\Domain\Enums\VideoParticipantRole;
 use App\Modules\VideoSession\Domain\Services\VideoRoomNameGenerator;
 use App\Modules\VideoSession\Infrastructure\LiveKit\LiveKitTokenService;
+use App\Support\ActivityLog\ActivityLogActorMode;
+use App\Support\ActivityLog\ActivityLogEvent;
+use App\Support\ActivityLog\ActivityLogger;
 use Illuminate\Auth\Access\AuthorizationException;
 use RuntimeException;
 
@@ -17,11 +20,12 @@ final readonly class GenerateVideoSessionTokenUseCase
     public function __construct(
         private LiveKitTokenService $liveKitTokenService,
         private VideoRoomNameGenerator $roomNameGenerator,
+        private ActivityLogger $activityLogger,
     ) {}
 
     public function execute(Booking $booking, User $user): JoinVideoSessionData
     {
-        $this->resolveParticipantRole($booking, $user);
+        $participantRole = $this->resolveParticipantRole($booking, $user);
         $this->assertBookingAllowsVideoSession($booking);
 
         $roomName = $this->roomNameGenerator->forBooking($booking);
@@ -32,7 +36,7 @@ final readonly class GenerateVideoSessionTokenUseCase
         );
         $participantName = filled($user->name) ? $user->name : 'Usuario';
 
-        return new JoinVideoSessionData(
+        $joinData = new JoinVideoSessionData(
             url: $this->liveKitUrl(),
             token: $this->liveKitTokenService->generateJoinToken(
                 roomName: $roomName,
@@ -45,6 +49,25 @@ final readonly class GenerateVideoSessionTokenUseCase
             participantIdentity: $participantIdentity,
             participantName: $participantName,
         );
+
+        $this->activityLogger->record(
+            event: ActivityLogEvent::VideoSessionTokenIssued,
+            entityType: 'booking',
+            entityId: $booking->id,
+            entityOwnerId: $booking->professional_id,
+            metadata: [
+                'booking_id' => $booking->id,
+                'room_name' => $roomName,
+                'participant_user_id' => $user->id,
+                'participant_identity' => $participantIdentity,
+            ],
+            actor: $user,
+            actingAs: $participantRole === VideoParticipantRole::Professional
+                ? ActivityLogActorMode::Professional
+                : ActivityLogActorMode::Client,
+        );
+
+        return $joinData;
     }
 
     private function resolveParticipantRole(

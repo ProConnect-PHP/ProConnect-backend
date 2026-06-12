@@ -6,14 +6,21 @@ use App\Enums\Video\VideoSessionStatus;
 use App\Exceptions\ApiException;
 use App\Models\User\User;
 use App\Models\Video\VideoSession;
+use App\Support\ActivityLog\ActivityLogActorMode;
+use App\Support\ActivityLog\ActivityLogEvent;
+use App\Support\ActivityLog\ActivityLogger;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
 
 class StartVideoSessionAction
 {
+    public function __construct(
+        private readonly ActivityLogger $activityLogger,
+    ) {}
+
     public function __invoke(VideoSession $videoSession, User $user): VideoSession
     {
-        return DB::transaction(function () use ($videoSession, $user) {
+        $videoSession = DB::transaction(function () use ($videoSession, $user) {
             $videoSession = VideoSession::query()
                 ->whereKey($videoSession->id)
                 ->lockForUpdate()
@@ -55,5 +62,25 @@ class StartVideoSessionAction
 
             return $videoSession->refresh()->load(['booking', 'participants']);
         });
+
+        $this->activityLogger->record(
+            event: ActivityLogEvent::VideoSessionStarted,
+            entityType: 'video_session',
+            entityId: $videoSession->id,
+            entityOwnerId: $videoSession->professional_id,
+            metadata: [
+                'video_session_id' => $videoSession->id,
+                'booking_id' => $videoSession->booking_id,
+                'room_name' => $videoSession->room_name,
+                'participant_user_id' => $user->id,
+                'status' => $videoSession->status,
+            ],
+            actor: $user,
+            actingAs: $user->professionalProfile?->id === $videoSession->professional_id
+                ? ActivityLogActorMode::Professional
+                : ActivityLogActorMode::Client,
+        );
+
+        return $videoSession;
     }
 }

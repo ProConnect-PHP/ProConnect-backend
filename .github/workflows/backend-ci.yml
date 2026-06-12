@@ -43,6 +43,20 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
+      mongodb:
+        image: mongo:7
+        env:
+          MONGO_INITDB_ROOT_USERNAME: proconnect
+          MONGO_INITDB_ROOT_PASSWORD: secret
+          MONGO_INITDB_DATABASE: proconnect_logs_testing
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok' -u proconnect -p secret --authenticationDatabase admin | grep 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 20
+
     env:
       APP_ENV: testing
       APP_DEBUG: true
@@ -63,6 +77,14 @@ jobs:
       REDIS_HOST: 127.0.0.1
       REDIS_PORT: 6379
 
+      MONGODB_USERNAME: proconnect
+      MONGODB_PASSWORD: secret
+      MONGODB_DATABASE: proconnect_logs_testing
+      MONGODB_PORT: 27017
+      MONGODB_URI: mongodb://proconnect:secret@127.0.0.1:27017/proconnect_logs_testing?authSource=admin
+      MONGODB_SERVER_SELECTION_TIMEOUT_MS: 500
+      MONGODB_CONNECT_TIMEOUT_MS: 500
+
       FRONTEND_URL: http://localhost:4200
       MAPBOX_PUBLIC_TOKEN: test-token
       SEED_DEMO_DATA: false
@@ -75,7 +97,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
-          extensions: pdo_pgsql, redis, intl
+          extensions: pdo_pgsql, redis, mongodb, intl
           coverage: none
 
       - name: Cache Composer
@@ -101,6 +123,24 @@ jobs:
         run: |
           for i in {1..30}; do
             pg_isready -h 127.0.0.1 -p 5432 -U proconnect -d proconnect_test && exit 0
+            sleep 2
+          done
+          exit 1
+
+      - name: Wait for MongoDB
+        run: |
+          for i in {1..30}; do
+            php -r '
+              try {
+                $manager = new MongoDB\Driver\Manager("mongodb://proconnect:secret@127.0.0.1:27017/proconnect_logs_testing?authSource=admin");
+                $command = new MongoDB\Driver\Command(["ping" => 1]);
+                $manager->executeCommand("admin", $command);
+                exit(0);
+              } catch (Throwable $e) {
+                fwrite(STDERR, $e->getMessage() . PHP_EOL);
+                exit(1);
+              }
+            ' && exit 0
             sleep 2
           done
           exit 1

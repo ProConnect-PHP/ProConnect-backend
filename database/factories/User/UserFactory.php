@@ -29,4 +29,11 @@ class UserFactory extends Factory
             'role' => 'professional',
         ]);
     }
+
+    public function admin(): static
+    {
+        return $this->state(fn () => [
+            'role' => 'admin',
+        ]);
+    }
 }

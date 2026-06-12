@@ -12,10 +12,10 @@ use App\Models\Booking\Booking;
 use App\Models\Service\Service;
 use App\Models\User\User;
 use App\Services\Booking\BookingReschedulingPolicyChecker;
+use App\Services\Notification\NotificationService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
-use App\Services\Notification\NotificationService;
 
 class RescheduleBookingAction
 {
@@ -51,6 +51,9 @@ class RescheduleBookingAction
                 );
             }
 
+            $oldStartsAt = $booking->starts_at?->toISOString();
+            $oldEndsAt = $booking->ends_at?->toISOString();
+
             $startsAt = Carbon::parse($startsAt)->seconds(0);
             $endsAt = $startsAt->copy()->addMinutes((int) $service->duration_minutes);
 
@@ -80,14 +83,15 @@ class RescheduleBookingAction
                 'client',
             ]);
 
-            DB::afterCommit(function () use ($booking, $actor): void {
+            DB::afterCommit(function () use ($booking, $actor, $oldStartsAt, $oldEndsAt): void {
+                event(new BookingRescheduled($booking, $actor, $oldStartsAt, $oldEndsAt));
 
-                if($actor->id === $booking->client_id){
+                if ($actor->id === $booking->client_id) {
                     $recipient = $booking->professional->user;
-                }else{
+                } else {
                     $recipient = $booking->client;
                 }
-                
+
                 $this->notificationService->send(
                     user: $recipient,
                     type: 'booking.rescheduled',
@@ -96,7 +100,6 @@ class RescheduleBookingAction
                     actionRoute: "/bookings/{$booking->id}"
                 );
 
-                event(new BookingRescheduled($booking, $actor));
             });
 
             return $booking;
