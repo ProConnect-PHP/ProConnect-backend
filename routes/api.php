@@ -76,26 +76,34 @@ Route::prefix('v1')->group(function (): void {
     |
     | */
 
-    Route::prefix('auth')->group(function (): void {
-        Route::post('/register', [AuthController::class, 'register'])
-            ->middleware('throttle:auth-register');
+       Route::prefix('auth')->group(function (): void {
 
-        Route::post('/login', [AuthController::class, 'login'])
-            ->middleware('throttle:auth-login');
+    Route::post('/register', [AuthController::class, 'register'])
+        ->middleware('throttle:auth-register');
 
-        Route::post('/refresh', [AuthController::class, 'refresh'])
-            ->middleware('throttle:auth-refresh');
+    Route::post('/login', [AuthController::class, 'login'])
+        ->middleware('throttle:auth-login');
 
-        Route::match(['post', 'put', 'patch'], '/account/password-reset', [ResetPasswordController::class, 'sendResetLink'])
+    Route::post('/refresh', [AuthController::class, 'refresh'])
+        ->middleware('throttle:auth-refresh');
+
+    Route::prefix('oauth')->group(function (): void {
+        Route::get('{provider}/redirect', [OAuthController::class, 'redirect']);
+        Route::get('{provider}/callback', [OAuthController::class, 'callback']);
+        Route::post('/exchange', [OAuthController::class, 'exchange']);
+    });
+
+
+    Route::match(['post', 'put', 'patch'], '/account/password-reset', [ResetPasswordController::class, 'sendResetLink'])
         ->middleware('throttle:api-public');
 
     Route::match(['post', 'put', 'patch'], '/password-update', [ResetPasswordController::class, 'updatePassword'])
         ->middleware('throttle:api-public');
 
-        Route::middleware(['auth:user_jwt', 'throttle:api-authenticated'])->group(function (): void {
-            Route::post('/logout', [AuthController::class, 'logout']);
-        });
+    Route::middleware(['auth:user_jwt', 'throttle:api-authenticated'])->group(function (): void {
+        Route::post('/logout', [AuthController::class, 'logout']);
     });
+});
 
     /*
     |--------------------------------------------------------------------------

@@ -6,24 +6,19 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            // Agregamos la columna de tipo timestamp, que permita nulos, justo después de la contraseña
-            $table->timestamp('password_changed_at')->nullable()->after('password');
-        });
+        // Verificamos si no existe por las dudas, y la inyectamos directamente
+        if (!Schema::hasColumn('users', 'password_changed_at')) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->timestamp('password_changed_at')->nullable();
+            });
+        }
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            // Si tiramos atrás la migración, removemos la columna
             $table->dropColumn('password_changed_at');
         });
     }
