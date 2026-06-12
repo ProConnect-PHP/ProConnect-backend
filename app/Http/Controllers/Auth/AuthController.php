@@ -6,6 +6,7 @@ use App\Actions\Auth\LoginAction;
 use App\Actions\Auth\LogoutAction;
 use App\Actions\Auth\RefreshTokenAction;
 use App\Actions\Auth\RegisterUserAction;
+use App\Exceptions\ApiExceptionRenderer;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RefreshTokenRequest;
@@ -38,9 +39,11 @@ class AuthController extends Controller
         $result = $loginAction($request);
 
         if ($result === null) {
-            return response()->json([
-                'message' => 'Credenciales incorrectas',
-            ], Response::HTTP_UNAUTHORIZED);
+            return ApiExceptionRenderer::render(
+                error: 'Unauthorized',
+                message: 'Credenciales incorrectas',
+                status: Response::HTTP_UNAUTHORIZED
+            );
         }
 
         return response()->json($result, Response::HTTP_OK);
@@ -60,9 +63,11 @@ class AuthController extends Controller
         $result = $refreshTokenAction($request->input('refresh_token'));
 
         if (! $result['access_token']) {
-            return response()->json([
-                'message' => 'Refresh token inválido o expirado',
-            ], Response::HTTP_UNAUTHORIZED);
+            return ApiExceptionRenderer::render(
+                error: 'Unauthorized',
+                message: 'Refresh token inválido o expirado',
+                status: Response::HTTP_UNAUTHORIZED
+            );
         }
 
         return response()->json([
