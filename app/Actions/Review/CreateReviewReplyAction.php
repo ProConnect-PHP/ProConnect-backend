@@ -6,17 +6,24 @@ use App\Exceptions\ApiException;
 use App\Models\Review\Review;
 use App\Models\Review\ReviewReply;
 use App\Models\User\ProfessionalProfile;
+use App\Support\ActivityLog\ActivityLogActorMode;
+use App\Support\ActivityLog\ActivityLogEvent;
+use App\Support\ActivityLog\ActivityLogger;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
 
 class CreateReviewReplyAction
 {
+    public function __construct(
+        private readonly ActivityLogger $activityLogger,
+    ) {}
+
     public function __invoke(
         Review $review,
         ProfessionalProfile $professionalProfile,
         array $data
     ): ReviewReply {
-        return DB::transaction(function () use ($review, $professionalProfile, $data) {
+        $reply = DB::transaction(function () use ($review, $professionalProfile, $data) {
             $review = Review::query()
                 ->whereKey($review->id)
                 ->lockForUpdate()
@@ -44,5 +51,21 @@ class CreateReviewReplyAction
                 'body' => $data['body'],
             ])->load('professional.user');
         });
+
+        $this->activityLogger->record(
+            event: ActivityLogEvent::ReviewReplyCreated,
+            entityType: 'review_reply',
+            entityId: $reply->id,
+            entityOwnerId: $professionalProfile->id,
+            metadata: [
+                'review_reply_id' => $reply->id,
+                'review_id' => $reply->review_id,
+                'professional_id' => $reply->professional_id,
+                'body_length' => mb_strlen((string) $data['body']),
+            ],
+            actingAs: ActivityLogActorMode::Professional,
+        );
+
+        return $reply;
     }
 }

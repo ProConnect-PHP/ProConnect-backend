@@ -12,6 +12,7 @@ Plataforma SaaS orientada a la gestión de servicios profesionales.
 * Laravel 13
 * PostgreSQL
 * Redis
+* MongoDB 7
 * Mailpit
 * Docker Compose
 
@@ -22,6 +23,7 @@ Plataforma SaaS orientada a la gestión de servicios profesionales.
 * Form Requests
 * Json Resources
 * PostgreSQL
+* MongoDB complementario para actividad y auditoria
 * JWT Authentication
 * Arquitectura modular y escalable
 
@@ -885,6 +887,82 @@ Además, puedes desactivar completamente el seeding demo con:
 
 ```env
 SEED_DEMO_DATA=false
+```
+
+---
+
+# Base NoSQL complementaria para logs
+
+ProConnect incorpora MongoDB como base documental complementaria para actividad,
+auditoria y eventos operativos. PostgreSQL sigue siendo la fuente de verdad
+transaccional para usuarios, perfiles, servicios, reservas, pagos, paquetes,
+videollamadas y resenas. Redis continua dedicado a cache, colas, locks, rate
+limiting y Horizon.
+
+MongoDB almacena eventos de autenticacion y OAuth, reservas, pagos, paquetes,
+servicios, disponibilidad, perfiles profesionales, videollamadas, resenas,
+notificaciones, seguridad y errores internos. El `ActivityLogger` sanitiza
+passwords, tokens, secretos y datos de pago. Si MongoDB no esta disponible, el
+flujo principal continua y Laravel escribe un warning en su log.
+
+## Actor global vs capacidad funcional en logs
+
+Cada documento conserva dos dimensiones diferentes del actor:
+
+- `actor_role`: rol global persistido en PostgreSQL (`client`, `professional` o
+  `admin`).
+- `acting_as`: modo funcional usado durante la accion (`guest`, `client`,
+  `professional`, `admin` o `system`).
+
+Por ejemplo, un usuario con `actor_role=professional` puede reservar o pagar un
+servicio ajeno con `acting_as=client`. Al crear su propio servicio mantiene
+`actor_role=professional` y usa `acting_as=professional`. Los procesos internos
+usan `acting_as=system`, mientras que un login fallido usa `acting_as=guest`.
+
+## Configuracion
+
+```env
+MONGODB_USERNAME=proconnect
+MONGODB_PASSWORD=secret
+MONGODB_DATABASE=proconnect_logs
+MONGODB_PORT=27017
+MONGODB_URI=mongodb://proconnect:secret@proconnect_mongodb:27017/proconnect_logs?authSource=admin
+```
+
+Levantar MongoDB y crear los indices:
+
+```bash
+docker compose up -d proconnect_mongodb
+docker compose exec proconnect_laravel php artisan activity-logs:ensure-indexes
+```
+
+Consultar desde Mongo:
+
+```bash
+docker compose exec proconnect_mongodb mongosh \
+  -u proconnect -p secret --authenticationDatabase admin
+```
+
+```javascript
+use proconnect_logs
+db.activity_logs.find().sort({ created_at: -1 }).limit(20).pretty()
+```
+
+Los usuarios con rol `admin` tambien pueden consultar y filtrar los logs:
+
+```http
+GET /api/v1/admin/activity-logs?event=booking.created&severity=info&limit=50
+Authorization: Bearer {TOKEN_ADMIN}
+```
+
+Filtros disponibles: `event`, `actor_id`, `entity_type`, `entity_id`,
+`acting_as`, `severity` y `limit` (maximo 200).
+
+Ejemplos:
+
+```http
+GET /api/v1/admin/activity-logs?acting_as=client&limit=50
+GET /api/v1/admin/activity-logs?actor_id={USER_UUID}&acting_as=professional
 ```
 
 ---

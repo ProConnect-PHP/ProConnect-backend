@@ -3,20 +3,27 @@
 namespace App\Actions\Video;
 
 use App\Enums\Video\VideoSessionStatus;
-use App\Exceptions\ApiException;
 use App\Events\Video\VideoSessionJoined;
+use App\Exceptions\ApiException;
 use App\Models\User\User;
 use App\Models\Video\VideoSession;
 use App\Models\Video\VideoSessionParticipant;
+use App\Support\ActivityLog\ActivityLogActorMode;
+use App\Support\ActivityLog\ActivityLogEvent;
+use App\Support\ActivityLog\ActivityLogger;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 class JoinVideoSessionAction
 {
+    public function __construct(
+        private readonly ActivityLogger $activityLogger,
+    ) {}
+
     public function __invoke(VideoSession $videoSession, User $user): array
     {
-        return DB::transaction(function () use ($videoSession, $user) {
+        $result = DB::transaction(function () use ($videoSession, $user) {
             $videoSession = VideoSession::query()
                 ->with(['booking', 'client', 'professional.user'])
                 ->whereKey($videoSession->id)
@@ -112,5 +119,26 @@ class JoinVideoSessionAction
                 'expires_at' => $now->copy()->addMinutes(60),
             ];
         });
+
+        $this->activityLogger->record(
+            event: ActivityLogEvent::VideoSessionTokenIssued,
+            entityType: 'video_session',
+            entityId: $result['video_session']->id,
+            entityOwnerId: $result['video_session']->professional_id,
+            metadata: [
+                'video_session_id' => $result['video_session']->id,
+                'booking_id' => $result['video_session']->booking_id,
+                'room_name' => $result['video_session']->room_name,
+                'participant_user_id' => $user->id,
+                'participant_role' => $result['participant']->role,
+                'expires_at' => $result['expires_at'],
+            ],
+            actor: $user,
+            actingAs: $result['participant']->role === ActivityLogActorMode::Professional->value
+                ? ActivityLogActorMode::Professional
+                : ActivityLogActorMode::Client,
+        );
+
+        return $result;
     }
 }

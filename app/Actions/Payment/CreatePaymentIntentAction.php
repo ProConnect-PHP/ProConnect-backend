@@ -9,15 +9,22 @@ use App\Exceptions\ApiException;
 use App\Models\Booking\Booking;
 use App\Models\Payment\PaymentIntent;
 use App\Models\User\User;
+use App\Support\ActivityLog\ActivityLogActorMode;
+use App\Support\ActivityLog\ActivityLogEvent;
+use App\Support\ActivityLog\ActivityLogger;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 class CreatePaymentIntentAction
 {
+    public function __construct(
+        private readonly ActivityLogger $activityLogger,
+    ) {}
+
     public function __invoke(Booking $booking, User $client, array $data = []): PaymentIntent
     {
-        return DB::transaction(function () use ($booking, $client, $data) {
+        $intent = DB::transaction(function () use ($booking, $client, $data) {
             $booking = Booking::query()
                 ->with(['payment', 'paymentIntents'])
                 ->whereKey($booking->id)
@@ -101,5 +108,28 @@ class CreatePaymentIntentAction
 
             return $intent->load(['booking', 'payment']);
         });
+
+        if ($intent->wasRecentlyCreated) {
+            $this->activityLogger->record(
+                event: ActivityLogEvent::PaymentCreated,
+                entityType: 'payment_intent',
+                entityId: $intent->id,
+                entityOwnerId: $intent->professional_id,
+                metadata: [
+                    'payment_intent_id' => $intent->id,
+                    'client_id' => $intent->client_id,
+                    'professional_id' => $intent->professional_id,
+                    'booking_id' => $intent->booking_id,
+                    'amount' => $intent->amount,
+                    'currency' => $intent->currency,
+                    'provider' => $intent->provider,
+                    'new_status' => $intent->status,
+                ],
+                actor: $client,
+                actingAs: ActivityLogActorMode::Client,
+            );
+        }
+
+        return $intent;
     }
 }
