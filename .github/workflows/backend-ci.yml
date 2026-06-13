@@ -87,6 +87,26 @@ jobs:
 
       FRONTEND_URL: http://localhost:4200
       MAPBOX_PUBLIC_TOKEN: test-token
+      PAYMENT_DEFAULT_PROVIDER: simulator
+      PAYMENT_ENABLED_PROVIDERS: simulator,mercadopago,paypal
+      PAYMENT_SIMULATOR_ENABLED: true
+      PAYMENTS_CURRENCY: UYU
+      PAYMENT_INTENT_EXPIRATION_MINUTES: 30
+      MERCADOPAGO_MODE: sandbox
+      MERCADOPAGO_WEBHOOK_SECRET: ci-default-webhook-secret
+      MERCADOPAGO_WEBHOOK_SECRET_TEST: ci-test-webhook-secret
+      MERCADOPAGO_WEBHOOK_SECRET_PRODUCTION: ci-production-webhook-secret
+      MERCADOPAGO_SUCCESS_URL: http://localhost:4200/payments/success
+      MERCADOPAGO_FAILURE_URL: http://localhost:4200/payments/failure
+      MERCADOPAGO_PENDING_URL: http://localhost:4200/payments/pending
+      MERCADOPAGO_NOTIFICATION_URL: https://ci.example.test/api/v1/payments/webhooks/mercadopago
+      MERCADOPAGO_WEBHOOK_SIGNATURE_REQUIRED: true
+      MERCADOPAGO_WEBHOOK_SIGNATURE_TOLERANCE_SECONDS: 300
+      PAYPAL_MODE: sandbox
+      PAYPAL_CURRENCY: USD
+      PAYPAL_EXCHANGE_RATES: '{"UYU":40}'
+      PAYPAL_SUCCESS_URL: http://localhost:4200/payments/success
+      PAYPAL_CANCEL_URL: http://localhost:4200/payments/cancel
       SEED_DEMO_DATA: false
 
     steps:

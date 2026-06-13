@@ -2,9 +2,11 @@
 
 namespace App\Models\Payment;
 
+use App\Enums\Payment\PayableType;
 use App\Enums\Payment\PaymentIntentStatus;
 use App\Enums\Payment\PaymentProvider;
 use App\Models\Booking\Booking;
+use App\Models\Package\PackageProduct;
 use App\Models\User\ProfessionalProfile;
 use App\Models\User\User;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -16,6 +18,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable([
     'booking_id',
+    'package_product_id',
+    'payable_type',
+    'payable_id',
     'client_id',
     'professional_id',
     'provider',
@@ -23,6 +28,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'amount',
     'currency',
     'provider_reference',
+    'checkout_url',
     'metadata',
     'expires_at',
     'processing_at',
@@ -45,6 +51,7 @@ class PaymentIntent extends Model
         return [
             'provider' => PaymentProvider::class,
             'status' => PaymentIntentStatus::class,
+            'payable_type' => PayableType::class,
             'amount' => 'integer',
             'metadata' => 'array',
             'expires_at' => 'datetime',
@@ -58,6 +65,11 @@ class PaymentIntent extends Model
     public function booking(): BelongsTo
     {
         return $this->belongsTo(Booking::class);
+    }
+
+    public function packageProduct(): BelongsTo
+    {
+        return $this->belongsTo(PackageProduct::class);
     }
 
     public function client(): BelongsTo
@@ -83,6 +95,13 @@ class PaymentIntent extends Model
     public function isProcessing(): bool
     {
         return $this->status === PaymentIntentStatus::Processing;
+    }
+
+    public function hasCheckout(): bool
+    {
+        return $this->status === PaymentIntentStatus::CheckoutCreated
+            && is_string($this->checkout_url)
+            && $this->checkout_url !== '';
     }
 
     public function isSucceeded(): bool

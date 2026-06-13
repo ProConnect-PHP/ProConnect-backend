@@ -23,6 +23,8 @@ class PaymentFactory extends Factory
         return [
             'payment_intent_id' => PaymentIntent::factory()->succeeded(),
             'booking_id' => Booking::factory()->paid(),
+            'package_product_id' => null,
+            'client_package_id' => null,
             'client_id' => User::factory(),
             'professional_id' => ProfessionalProfile::factory(),
             'provider' => PaymentProvider::Simulator,
@@ -30,6 +32,8 @@ class PaymentFactory extends Factory
             'amount' => 1500,
             'currency' => config('proconnect.payments.currency', 'UYU'),
             'provider_reference' => fake()->uuid(),
+            'provider_payment_id' => fake()->uuid(),
+            'raw_provider_status' => 'approved',
             'metadata' => null,
             'paid_at' => now(),
             'failed_at' => null,
@@ -43,6 +47,7 @@ class PaymentFactory extends Factory
         return $this->state(fn () => [
             'payment_intent_id' => $intent->id,
             'booking_id' => $intent->booking_id,
+            'package_product_id' => $intent->package_product_id,
             'client_id' => $intent->client_id,
             'professional_id' => $intent->professional_id,
             'provider' => $intent->provider,

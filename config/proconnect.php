@@ -9,8 +9,24 @@ return [
 
     'payments' => [
         'currency' => env('PAYMENTS_CURRENCY', 'UYU'),
+        'default_provider' => env('PAYMENT_DEFAULT_PROVIDER', 'simulator'),
+        'enabled_providers' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', env(
+                'PAYMENT_ENABLED_PROVIDERS',
+                'simulator,mercadopago,paypal'
+            ))
+        ))),
+        'intent_expiration_minutes' => (int) env(
+            'PAYMENT_INTENT_EXPIRATION_MINUTES',
+            30
+        ),
 
         'simulator' => [
+            'enabled' => (bool) env(
+                'PAYMENT_SIMULATOR_ENABLED',
+                env('APP_ENV', 'production') !== 'production'
+            ),
             'intent_expiration_minutes' => (int) env('PAYMENT_INTENT_EXPIRATION_MINUTES', 30),
         ],
     ],

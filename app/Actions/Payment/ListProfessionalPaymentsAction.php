@@ -11,7 +11,7 @@ class ListProfessionalPaymentsAction
     public function __invoke(ProfessionalProfile $professionalProfile, int $perPage = 10): LengthAwarePaginator
     {
         return Payment::query()
-            ->with(['booking'])
+            ->with(['booking', 'packageProduct', 'clientPackage'])
             ->where('professional_id', $professionalProfile->id)
             ->latest('paid_at')
             ->paginate(min($perPage, 50));

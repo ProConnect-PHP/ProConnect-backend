@@ -25,6 +25,7 @@ return [
             'client' => 10,
             'professional' => 10,
         ],
+        'payment_webhooks' => 120,
         'video_join' => [
             'guest' => 3,
             'client' => 30,

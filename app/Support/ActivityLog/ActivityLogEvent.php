@@ -43,12 +43,17 @@ enum ActivityLogEvent: string
     case PackageSessionReserved = 'package.session_reserved';
     case PackageSessionConsumed = 'package.session_consumed';
 
-    case PaymentCreated = 'payment.created';
+    case PaymentCreated = 'payment.intent_created';
+    case PaymentCheckoutCreated = 'payment.checkout_created';
     case PaymentApproved = 'payment.approved';
     case PaymentRejected = 'payment.rejected';
     case PaymentFailed = 'payment.failed';
     case PaymentRefunded = 'payment.refunded';
     case PaymentWebhookReceived = 'payment.webhook_received';
+    case PaymentWebhookSignatureValid = 'payment.webhook_signature_valid';
+    case PaymentWebhookSignatureInvalid = 'payment.webhook_signature_invalid';
+    case PaymentWebhookProcessed = 'payment.webhook_processed';
+    case PaymentWebhookDuplicated = 'payment.webhook_duplicated';
     case PaymentWebhookFailed = 'payment.webhook_failed';
 
     case VideoSessionCreated = 'video_session.created';

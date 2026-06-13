@@ -6,6 +6,5 @@ enum PaymentProvider: string
 {
     case Simulator = 'simulator';
     case MercadoPago = 'mercadopago';
-    case Paypal = 'paypal';
-    case Stripe = 'stripe';
+    case PayPal = 'paypal';
 }

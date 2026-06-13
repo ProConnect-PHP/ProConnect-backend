@@ -22,6 +22,10 @@ class SendPaymentSucceededNotifications implements ShouldQueue
             'professional.user',
         ]);
 
+        if (! $payment->booking) {
+            return;
+        }
+
         if ($payment->client) {
             app(QueueBookingEmailNotificationAction::class)(
                 booking: $payment->booking,

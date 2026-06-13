@@ -29,6 +29,7 @@
         <env name="DB_URL" value=""/>
         <env name="JWT_SECRET" value="proconnect-testing-jwt-secret"/>
         <env name="MAIL_MAILER" value="array"/>
+        <env name="PAYMENT_SIMULATOR_ENABLED" value="true"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>

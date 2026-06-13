@@ -3,6 +3,7 @@
 namespace Database\Seeders\Demo;
 
 use App\Enums\Booking\BookingStatus;
+use App\Enums\Payment\PayableType;
 use App\Enums\Payment\PaymentIntentStatus;
 use App\Enums\Payment\PaymentProvider;
 use App\Enums\Payment\PaymentStatus;
@@ -38,7 +39,7 @@ class DemoPaymentSeeder extends Seeder
             $this->upsertCheckoutIntent(
                 $confirmedBookings->first(),
                 PaymentIntentStatus::Pending,
-                'demo_pi_pending_' . $confirmedBookings->first()->id,
+                'demo_pi_pending_'.$confirmedBookings->first()->id,
                 'pending_checkout_demo'
             );
         }
@@ -47,7 +48,7 @@ class DemoPaymentSeeder extends Seeder
             $this->upsertCheckoutIntent(
                 $confirmedBookings->last(),
                 PaymentIntentStatus::Failed,
-                'demo_pi_failed_' . $confirmedBookings->last()->id,
+                'demo_pi_failed_'.$confirmedBookings->last()->id,
                 'failed_checkout_demo'
             );
         }
@@ -69,10 +70,12 @@ class DemoPaymentSeeder extends Seeder
 
         $intent = PaymentIntent::query()->updateOrCreate(
             [
-                'provider_reference' => 'demo_pi_succeeded_' . $booking->id,
+                'provider_reference' => 'demo_pi_succeeded_'.$booking->id,
             ],
             [
                 'booking_id' => $booking->id,
+                'payable_type' => PayableType::Booking,
+                'payable_id' => $booking->id,
                 'client_id' => $booking->client_id,
                 'professional_id' => $booking->professional_id,
                 'provider' => PaymentProvider::Simulator,
@@ -130,6 +133,8 @@ class DemoPaymentSeeder extends Seeder
             ],
             [
                 'booking_id' => $booking->id,
+                'payable_type' => PayableType::Booking,
+                'payable_id' => $booking->id,
                 'client_id' => $booking->client_id,
                 'professional_id' => $booking->professional_id,
                 'provider' => PaymentProvider::Simulator,
