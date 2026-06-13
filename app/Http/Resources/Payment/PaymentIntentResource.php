@@ -12,6 +12,9 @@ class PaymentIntentResource extends JsonResource
         return [
             'id' => $this->id,
             'booking_id' => $this->booking_id,
+            'package_product_id' => $this->package_product_id,
+            'payable_type' => $this->payable_type?->value ?? $this->payable_type,
+            'payable_id' => $this->payable_id,
             'client_id' => $this->client_id,
             'professional_id' => $this->professional_id,
             'provider' => $this->provider?->value ?? $this->provider,
@@ -19,6 +22,7 @@ class PaymentIntentResource extends JsonResource
             'amount' => $this->amount,
             'currency' => $this->currency,
             'provider_reference' => $this->provider_reference,
+            'checkout_url' => $this->checkout_url,
             'metadata' => $this->metadata,
             'expires_at' => $this->expires_at?->toDateTimeString(),
             'processing_at' => $this->processing_at?->toDateTimeString(),
@@ -34,6 +38,14 @@ class PaymentIntentResource extends JsonResource
                     'starts_at' => $this->booking->starts_at?->toDateTimeString(),
                     'ends_at' => $this->booking->ends_at?->toDateTimeString(),
                     'service_id' => $this->booking->service_id,
+                ];
+            }),
+            'package_product' => $this->whenLoaded('packageProduct', function () {
+                return [
+                    'id' => $this->packageProduct->id,
+                    'name' => $this->packageProduct->name,
+                    'sessions_count' => $this->packageProduct->sessions_count,
+                    'service_id' => $this->packageProduct->service_id,
                 ];
             }),
             'created_at' => $this->created_at?->toDateTimeString(),

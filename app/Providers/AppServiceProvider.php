@@ -48,6 +48,10 @@ use App\Policies\ServicePolicy;
 use App\Policies\VideoSessionPolicy;
 use App\Services\Auth\RedisOAuthExchangeCodeStore;
 use App\Services\Auth\SocialiteOAuthIdentityProvider;
+use App\Services\Payment\PaymentProviderManager;
+use App\Services\Payment\Providers\MercadoPago\MercadoPagoPaymentProvider;
+use App\Services\Payment\Providers\PayPal\PayPalPaymentProvider;
+use App\Services\Payment\Providers\Simulator\SimulatorPaymentProvider;
 use App\Support\ActivityLog\ActivityLogger;
 use App\Support\Security\ApiRateLimit;
 use Illuminate\Http\Request;
@@ -64,6 +68,19 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(ActivityLogger::class);
+
+        $this->app->tag([
+            SimulatorPaymentProvider::class,
+            MercadoPagoPaymentProvider::class,
+            PayPalPaymentProvider::class,
+        ], 'payment.providers');
+
+        $this->app->singleton(
+            PaymentProviderManager::class,
+            fn ($app) => new PaymentProviderManager(
+                $app->tagged('payment.providers')
+            )
+        );
 
         $this->app->bind(
             IOAuthIdentityProvider::class,
@@ -108,6 +125,10 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for(
             'payment-actions',
             fn (Request $request) => ApiRateLimit::byRole($request, 'payment_actions')
+        );
+        RateLimiter::for(
+            'payment-webhooks',
+            fn (Request $request) => ApiRateLimit::byIp($request, 'payment_webhooks')
         );
         RateLimiter::for(
             'video-join',

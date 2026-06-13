@@ -407,25 +407,128 @@ REDIS_PORT=6379
 
 ---
 
-# Payment simulator
+# Payment Orchestrator multi-provider
 
-ProConnect incluye un motor de pagos simulado para desarrollo y demo. No integra MercadoPago, PayPal ni Stripe todavia, pero usa una arquitectura compatible con futuros proveedores.
+ProConnect implementa una arquitectura de pagos desacoplada con tres providers:
+
+* `simulator` para desarrollo y tests.
+* `mercadopago` mediante Checkout Pro.
+* `paypal` mediante Orders API v2.
+
+PostgreSQL almacena intenciones, pagos confirmados y eventos de webhook. MongoDB
+registra actividad y auditoria sin bloquear el flujo principal cuando no esta
+disponible. El dominio usa `IPaymentProviderGateway` y no depende de estados
+externos ni SDKs de un proveedor.
 
 ## Configuracion
 
 ```env
+PAYMENT_DEFAULT_PROVIDER=simulator
+PAYMENT_ENABLED_PROVIDERS=simulator,mercadopago,paypal
+PAYMENT_SIMULATOR_ENABLED=true
 PAYMENTS_CURRENCY=UYU
 PAYMENT_INTENT_EXPIRATION_MINUTES=30
 ```
 
-## Crear intent de pago
+Las credenciales `MERCADOPAGO_*` y `PAYPAL_*` deben configurarse como secretos
+del entorno de despliegue. No se versionan tokens ni client secrets.
+En produccion, `PAYMENT_SIMULATOR_ENABLED` debe permanecer en `false`.
+
+Checkout Pro requiere una URL publica explicita. En desarrollo se debe usar un
+tunel como ngrok o Cloudflare Tunnel; `localhost`, `127.0.0.1` y direcciones IP
+privadas se rechazan antes de crear la preferencia:
+
+```env
+MERCADOPAGO_MODE=sandbox
+MERCADOPAGO_NOTIFICATION_URL=https://tu-tunel.example/api/v1/payments/webhooks/mercadopago
+MERCADOPAGO_WEBHOOK_SECRET=
+MERCADOPAGO_WEBHOOK_SECRET_TEST=
+MERCADOPAGO_WEBHOOK_SECRET_PRODUCTION=
+MERCADOPAGO_WEBHOOK_SIGNATURE_REQUIRED=true
+MERCADOPAGO_WEBHOOK_SIGNATURE_TOLERANCE_SECONDS=300
+```
+
+`MERCADOPAGO_MODE` acepta `sandbox` y `production`. El modo nunca se infiere
+desde el prefijo del access token. Sandbox prioriza `sandbox_init_point` y
+produccion prioriza `init_point`, con fallback al otro campo si falta.
+
+Las URLs de retorno reciben `payment_intent_id`. La firma del webhook se valida
+con `x-signature`, `x-request-id`, el `data.id` de query y HMAC SHA-256. Una
+firma invalida se persiste como `invalid_signature`, responde de forma
+controlada y nunca consulta ni actualiza pagos. El verificador prueba los
+secrets logicos `default`, `test` y `production` sin registrar sus valores.
+Los eventos Mercado Pago cuyo tipo no sea `payment`, o cuyo ID de pago no sea
+numerico, se persisten como `ignored` antes de validar firma y no consultan ni
+modifican pagos.
+
+PayPal no acepta `UYU` en Orders API. `PAYPAL_CURRENCY` define la moneda de la
+orden y `PAYPAL_EXCHANGE_RATES` define cuantas unidades de la moneda interna
+equivalen a una unidad de esa moneda. La tasa usada queda guardada como snapshot
+en metadata del intent:
+
+```env
+PAYPAL_CURRENCY=USD
+PAYPAL_EXCHANGE_RATES='{"UYU":40}'
+```
+
+## Crear intent de pago generico
+
+```http
+POST /api/v1/payment-intents
+Authorization: Bearer {TOKEN_CLIENTE}
+Content-Type: application/json
+
+{
+  "payable_type": "booking",
+  "payable_id": "uuid",
+  "provider": "mercadopago"
+}
+```
+
+`payable_type` admite `booking` y `package`. El backend calcula el monto desde
+`booking.price_snapshot` o `package_products.price`; ignora cualquier monto
+enviado por el frontend.
+
+La ruta compatible para reservas sigue disponible:
 
 ```http
 POST /api/v1/bookings/{booking}/payment-intents
 Authorization: Bearer {TOKEN_CLIENTE}
 ```
 
-El frontend no envia `amount`. El backend calcula el monto desde `booking.price_snapshot`.
+## Crear checkout
+
+```http
+POST /api/v1/payment-intents/{paymentIntent}/checkout
+Authorization: Bearer {TOKEN_CLIENTE}
+Content-Type: application/json
+
+{
+  "provider": "paypal"
+}
+```
+
+La respuesta incluye `payment_intent.checkout_url`. El frontend redirige a esa
+URL y, al volver, consulta:
+
+```http
+GET /api/v1/payment-intents/{paymentIntent}/status
+```
+
+El redirect no confirma pagos. La confirmacion ocurre por webhook y consulta
+server-to-server al provider.
+
+## Webhooks publicos
+
+```http
+POST /api/v1/payments/webhooks/mercadopago
+POST /api/v1/payments/webhooks/paypal
+```
+
+Los webhooks no usan JWT. MercadoPago valida HMAC con `x-signature`; PayPal usa
+`/v1/notifications/verify-webhook-signature`. Cada evento se persiste con una
+clave idempotente antes de procesarse. Eventos repetidos no duplican pagos,
+bookings pagadas ni paquetes comprados.
 
 ## Simular pago exitoso
 
@@ -475,27 +578,19 @@ GET /api/v1/professional/payments
 * Solo se pueden pagar reservas `confirmed`.
 * No se puede pagar `pending`, `paid`, `in_progress`, `completed`, `cancelled` ni `no_show`.
 * El monto sale del backend desde `booking.price_snapshot`.
-* `payments.booking_id` es unico para impedir doble pago exitoso.
+* `payments.payment_intent_id` es unico para impedir doble procesamiento.
 * Si un intent falla, se puede crear un nuevo intent.
 * `payment_intents` registra intentos; `payments` registra pagos finales.
 * Las transacciones y locks evitan carreras entre dobles confirmaciones de pago.
-
-## Futuro provider real
-
-El simulador deja preparado el camino para extraer una interfaz como `PaymentProviderGateway` y agregar implementaciones futuras:
-
-```txt
-SimulatorPaymentProvider
-MercadoPagoPaymentProvider
-PaypalPaymentProvider
-StripePaymentProvider
-```
 
 ---
 
 # Paquetes de sesiones
 
-El sistema permite que profesionales creen paquetes de multiples sesiones y que clientes los compren con una compra simulada directa para demo/MVP.
+El sistema permite que profesionales creen paquetes de multiples sesiones. El
+flujo multi-provider crea el `ClientPackage` solamente despues de confirmar el
+pago. La compra simulada directa existente se conserva como compatibilidad para
+demo, pero las integraciones nuevas deben usar `POST /api/v1/payment-intents`.
 
 ## Crear paquete profesional
 
@@ -637,22 +732,6 @@ La arquitectura está pensada para integrar posteriormente:
 * Laravel Reverb
 * LiveKit
 * Notificaciones en tiempo real
-
----
-
-# 📦 Futuras funcionalidades
-
-* Reserva de turnos
-* Agenda avanzada
-* Pagos
-* Videollamadas
-* Paquetes de sesiones
-* OAuth
-* Panel administrativo
-* Multi tenancy lógico
-* Sistema de reviews
-* Recordatorios automáticos
-* Jobs y queues
 
 ---
 
@@ -966,3 +1045,43 @@ GET /api/v1/admin/activity-logs?actor_id={USER_UUID}&acting_as=professional
 ```
 
 ---
+
+select
+  pwe.id as webhook_event_id,
+  pwe.provider_event_id,
+  pwe.event_type,
+  pwe.resource_type,
+  pwe.resource_id,
+  pwe.signature_valid,
+  pwe.status as webhook_status,
+  pwe.failure_reason as webhook_failure_reason,
+  pwe.created_at as webhook_created_at,
+
+  p.id as payment_id,
+  p.status as payment_status,
+  p.provider,
+  p.provider_reference,
+  p.provider_payment_id,
+  p.raw_provider_status,
+  p.amount,
+  p.currency,
+  p.paid_at,
+
+  pi.id as payment_intent_id,
+  pi.status as payment_intent_status,
+  pi.provider_reference as intent_provider_reference,
+  pi.checkout_url,
+
+  b.id as booking_id,
+  b.status as booking_status
+from payment_webhook_events pwe
+left join payments p
+  on p.provider = pwe.provider
+ and p.provider_payment_id = pwe.resource_id
+left join payment_intents pi
+  on pi.id = p.payment_intent_id
+left join bookings b
+  on b.id = coalesce(pi.booking_id, p.booking_id)
+<!-- where pwe.provider = 'mercadopago'
+  and pwe.resource_id = '163096411563' -->
+order by pwe.created_at desc;

@@ -138,9 +138,14 @@ final readonly class LogDomainActivity
             'client_id' => $payment->client_id,
             'professional_id' => $payment->professional_id,
             'booking_id' => $payment->booking_id,
+            'package_product_id' => $payment->package_product_id,
+            'client_package_id' => $payment->client_package_id,
             'amount' => $payment->amount,
             'currency' => $payment->currency,
             'provider' => $payment->provider,
+            'provider_reference' => $payment->provider_reference,
+            'provider_payment_id' => $payment->provider_payment_id,
+            'raw_status' => $payment->raw_provider_status,
             'new_status' => $payment->status,
             'paid_at' => $payment->paid_at,
         ];
@@ -151,19 +156,25 @@ final readonly class LogDomainActivity
             entityId: $payment->id,
             entityOwnerId: $payment->professional_id,
             metadata: $metadata,
-            actor: $payment->client,
-            actingAs: ActivityLogActorMode::Client,
+            actor: $event->actingAs === ActivityLogActorMode::System
+                ? null
+                : $payment->client,
+            actingAs: $event->actingAs,
         );
 
-        $this->activityLogger->record(
-            event: ActivityLogEvent::BookingPaid,
-            entityType: 'booking',
-            entityId: $payment->booking_id,
-            entityOwnerId: $payment->professional_id,
-            metadata: $metadata,
-            actor: $payment->client,
-            actingAs: ActivityLogActorMode::Client,
-        );
+        if ($payment->booking_id !== null) {
+            $this->activityLogger->record(
+                event: ActivityLogEvent::BookingPaid,
+                entityType: 'booking',
+                entityId: $payment->booking_id,
+                entityOwnerId: $payment->professional_id,
+                metadata: $metadata,
+                actor: $event->actingAs === ActivityLogActorMode::System
+                    ? null
+                    : $payment->client,
+                actingAs: $event->actingAs,
+            );
+        }
     }
 
     private function paymentFailed(PaymentFailed $event): void
@@ -187,8 +198,10 @@ final readonly class LogDomainActivity
                 'new_status' => $intent->status,
                 'failure_reason' => $intent->failure_reason,
             ],
-            actor: $intent->client,
-            actingAs: ActivityLogActorMode::Client,
+            actor: $event->actingAs === ActivityLogActorMode::System
+                ? null
+                : $intent->client,
+            actingAs: $event->actingAs,
         );
     }
 
@@ -218,8 +231,10 @@ final readonly class LogDomainActivity
                 'amount_paid' => $clientPackage->price_snapshot,
                 'currency' => $clientPackage->currency,
             ],
-            actor: $clientPackage->client,
-            actingAs: ActivityLogActorMode::Client,
+            actor: $event->actingAs === ActivityLogActorMode::System
+                ? null
+                : $clientPackage->client,
+            actingAs: $event->actingAs,
         );
     }
 

@@ -19,7 +19,10 @@ use App\Http\Controllers\Package\ProfessionalSoldPackageController;
 use App\Http\Controllers\Package\PublicPackageProductController;
 use App\Http\Controllers\Payment\BookingPaymentIntentController;
 use App\Http\Controllers\Payment\ClientPaymentController;
+use App\Http\Controllers\Payment\PaymentCheckoutController;
+use App\Http\Controllers\Payment\PaymentIntentController;
 use App\Http\Controllers\Payment\PaymentSimulationController;
+use App\Http\Controllers\Payment\PaymentWebhookController;
 use App\Http\Controllers\Payment\ProfessionalPaymentController;
 use App\Http\Controllers\ProfessionalProfile\ProfessionalProfileController;
 use App\Http\Controllers\Public\PublicProfessionalController;
@@ -38,6 +41,13 @@ use App\Modules\VideoSession\Infrastructure\Http\Controllers\JoinVideoSessionCon
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function (): void {
+    Route::post('/payments/webhooks/mercadopago', [PaymentWebhookController::class, 'mercadoPago'])
+        ->middleware('throttle:payment-webhooks')
+        ->name('payments.webhooks.mercadopago');
+    Route::post('/payments/webhooks/paypal', [PaymentWebhookController::class, 'payPal'])
+        ->middleware('throttle:payment-webhooks')
+        ->name('payments.webhooks.paypal');
+
     /*
     |--------------------------------------------------------------------------
     | Public API
@@ -105,7 +115,6 @@ Route::prefix('v1')->group(function (): void {
     |
     */
 
-
     Route::middleware('auth:user_jwt')->group(function (): void {
         /*
         |--------------------------------------------------------------------------
@@ -119,9 +128,9 @@ Route::prefix('v1')->group(function (): void {
         });
 
         // Route::middleware(['role:admin', 'throttle:api-authenticated'])
-            // ->prefix('admin')
-            // ->group(function (): void {
-            // });
+        // ->prefix('admin')
+        // ->group(function (): void {
+        // });
 
         Route::middleware(['client-capable', 'throttle:api-authenticated'])->group(function (): void {
             Route::get('/bookings/my', [BookingController::class, 'my']);
@@ -184,8 +193,12 @@ Route::prefix('v1')->group(function (): void {
         */
 
         Route::middleware(['client-capable', 'throttle:payment-actions'])->group(function (): void {
+            Route::post('/payment-intents', [PaymentIntentController::class, 'store']);
             Route::post('/bookings/{booking}/payment-intents', [BookingPaymentIntentController::class, 'store']);
 
+            Route::get('/payment-intents/{paymentIntent}', [PaymentIntentController::class, 'show']);
+            Route::get('/payment-intents/{paymentIntent}/status', [PaymentIntentController::class, 'status']);
+            Route::post('/payment-intents/{paymentIntent}/checkout', [PaymentCheckoutController::class, 'store']);
             Route::post('/payment-intents/{paymentIntent}/simulate-success', [PaymentSimulationController::class, 'success']);
             Route::post('/payment-intents/{paymentIntent}/simulate-failure', [PaymentSimulationController::class, 'failure']);
 

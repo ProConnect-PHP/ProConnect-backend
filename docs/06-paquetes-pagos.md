@@ -228,6 +228,52 @@ Permitir confirmar económicamente una reserva o compra de paquete mediante pasa
 - Implementar idempotencia por referencia externa.
 - El pago exitoso debe emitir evento de dominio.
 
+### Payment Orchestrator multi-provider
+
+El backend soporta `simulator`, `mercadopago` y `paypal` mediante la interfaz
+comun `IPaymentProviderGateway`.
+
+Flujo:
+
+1. El cliente crea un `PaymentIntent` para `booking` o `package`.
+2. El backend calcula monto y moneda desde PostgreSQL.
+3. El cliente solicita checkout y recibe `checkout_url`.
+4. El provider notifica el resultado por webhook.
+5. El backend valida la firma y consulta el recurso al provider.
+6. Una transaccion confirma el intent, crea `Payment` y actualiza booking o
+   crea `ClientPackage`.
+7. Eventos de dominio disparan logs MongoDB y notificaciones.
+
+Endpoints:
+
+```text
+POST /api/v1/payment-intents
+POST /api/v1/payment-intents/{paymentIntent}/checkout
+GET  /api/v1/payment-intents/{paymentIntent}
+GET  /api/v1/payment-intents/{paymentIntent}/status
+POST /api/v1/payments/webhooks/mercadopago
+POST /api/v1/payments/webhooks/paypal
+```
+
+`payment_webhook_events` persiste una clave idempotente por evento. Si el
+provider no entrega un ID, la clave deriva de provider, tipo y recurso. Los
+payloads persistidos se sanitizan y no contienen credenciales ni datos de
+tarjeta.
+
+Para Mercado Pago, Checkout Pro usa `MERCADOPAGO_NOTIFICATION_URL`; no deriva
+la URL desde `APP_URL`. Debe ser una URL publica y las firmas se validan con el
+manifest oficial `id:{data.id};request-id:{x-request-id};ts:{ts};`, HMAC
+SHA-256 y tolerancia temporal configurable. Se prueban los secrets
+`MERCADOPAGO_WEBHOOK_SECRET`, `MERCADOPAGO_WEBHOOK_SECRET_TEST` y
+`MERCADOPAGO_WEBHOOK_SECRET_PRODUCTION`, registrando solo el nombre logico del
+secret que se intenta validar. Un evento `payment` valido se confirma
+consultando `GET /v1/payments/{id}` antes de modificar el dominio. Otros tipos
+de recurso y pagos con ID no numerico se persisten como `ignored` antes de
+validar firma y sin consultar Mercado Pago.
+`MERCADOPAGO_MODE` define explicitamente `sandbox` o `production`; no se
+interpreta el prefijo de la credencial. Sandbox prioriza `sandbox_init_point`
+y produccion prioriza `init_point`.
+
 ### Pendientes
 
 - 🔒 Validar si PayPal está implementado, simulado o incompleto.

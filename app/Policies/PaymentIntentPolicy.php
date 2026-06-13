@@ -17,4 +17,9 @@ class PaymentIntentPolicy
     {
         return $intent->client_id === $user->id;
     }
+
+    public function checkout(User $user, PaymentIntent $intent): bool
+    {
+        return $intent->client_id === $user->id;
+    }
 }

@@ -19,7 +19,7 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['https://tallerphp.gyabisito.dev', 'http://localhost:4200'],
+    'allowed_origins' => ['https://tallerphp.gyabisito.dev', 'http://localhost:4200','https://6c9f-2800-a4-2a2b-3a00-fc0f-cc5-a08-be47.ngrok-free.app'],
 
     'allowed_origins_patterns' => [],
 

@@ -2,9 +2,11 @@
 
 namespace Database\Factories\Payment;
 
+use App\Enums\Payment\PayableType;
 use App\Enums\Payment\PaymentIntentStatus;
 use App\Enums\Payment\PaymentProvider;
 use App\Models\Booking\Booking;
+use App\Models\Package\PackageProduct;
 use App\Models\Payment\PaymentIntent;
 use App\Models\User\ProfessionalProfile;
 use App\Models\User\User;
@@ -21,6 +23,9 @@ class PaymentIntentFactory extends Factory
     {
         return [
             'booking_id' => Booking::factory()->confirmed(),
+            'package_product_id' => null,
+            'payable_type' => null,
+            'payable_id' => null,
             'client_id' => User::factory(),
             'professional_id' => ProfessionalProfile::factory(),
             'provider' => PaymentProvider::Simulator,
@@ -28,6 +33,7 @@ class PaymentIntentFactory extends Factory
             'amount' => 1500,
             'currency' => config('proconnect.payments.currency', 'UYU'),
             'provider_reference' => fake()->uuid(),
+            'checkout_url' => null,
             'metadata' => null,
             'expires_at' => now()->addMinutes(30),
             'processing_at' => null,
@@ -42,9 +48,30 @@ class PaymentIntentFactory extends Factory
     {
         return $this->state(fn () => [
             'booking_id' => $booking->id,
+            'package_product_id' => null,
+            'payable_type' => PayableType::Booking,
+            'payable_id' => $booking->id,
             'client_id' => $booking->client_id,
             'professional_id' => $booking->professional_id,
             'amount' => (int) round((float) $booking->price_snapshot),
+        ]);
+    }
+
+    public function forPackageProduct(
+        PackageProduct $packageProduct,
+        ?User $client = null
+    ): static {
+        $client ??= User::factory()->create();
+
+        return $this->state(fn () => [
+            'booking_id' => null,
+            'package_product_id' => $packageProduct->id,
+            'payable_type' => PayableType::Package,
+            'payable_id' => $packageProduct->id,
+            'client_id' => $client->id,
+            'professional_id' => $packageProduct->professional_id,
+            'amount' => $packageProduct->price,
+            'currency' => $packageProduct->currency,
         ]);
     }
 

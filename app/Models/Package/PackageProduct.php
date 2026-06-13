@@ -2,6 +2,7 @@
 
 namespace App\Models\Package;
 
+use App\Models\Payment\PaymentIntent;
 use App\Models\Service\Service;
 use App\Models\User\ProfessionalProfile;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -56,5 +57,10 @@ class PackageProduct extends Model
     public function clientPackages(): HasMany
     {
         return $this->hasMany(ClientPackage::class);
+    }
+
+    public function paymentIntents(): HasMany
+    {
+        return $this->hasMany(PaymentIntent::class);
     }
 }

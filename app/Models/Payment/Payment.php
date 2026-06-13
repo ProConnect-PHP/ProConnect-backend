@@ -5,6 +5,8 @@ namespace App\Models\Payment;
 use App\Enums\Payment\PaymentProvider;
 use App\Enums\Payment\PaymentStatus;
 use App\Models\Booking\Booking;
+use App\Models\Package\ClientPackage;
+use App\Models\Package\PackageProduct;
 use App\Models\User\ProfessionalProfile;
 use App\Models\User\User;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -16,6 +18,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable([
     'payment_intent_id',
     'booking_id',
+    'package_product_id',
+    'client_package_id',
     'client_id',
     'professional_id',
     'provider',
@@ -23,6 +27,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'amount',
     'currency',
     'provider_reference',
+    'provider_payment_id',
+    'raw_provider_status',
     'metadata',
     'paid_at',
     'failed_at',
@@ -59,6 +65,16 @@ class Payment extends Model
     public function booking(): BelongsTo
     {
         return $this->belongsTo(Booking::class);
+    }
+
+    public function packageProduct(): BelongsTo
+    {
+        return $this->belongsTo(PackageProduct::class);
+    }
+
+    public function clientPackage(): BelongsTo
+    {
+        return $this->belongsTo(ClientPackage::class);
     }
 
     public function client(): BelongsTo

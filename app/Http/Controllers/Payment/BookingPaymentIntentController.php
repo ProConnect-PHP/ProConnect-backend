@@ -21,7 +21,7 @@ class BookingPaymentIntentController extends Controller
         Gate::authorize('pay', $booking);
 
         $intent = $action(
-            booking: $booking,
+            payable: $booking,
             client: auth('user_jwt')->user(),
             data: $request->validated()
         );
