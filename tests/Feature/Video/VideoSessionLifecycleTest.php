@@ -11,6 +11,8 @@ use App\Enums\Booking\BookingStatus;
 use App\Enums\Video\VideoSessionStatus;
 use App\Events\Payment\PaymentSucceeded;
 use App\Models\Booking\Booking;
+use App\Models\Package\ClientPackage;
+use App\Models\Package\PackageSession;
 use App\Models\Payment\PaymentIntent;
 use App\Models\Service\Service;
 use App\Models\User\ProfessionalProfile;
@@ -38,14 +40,37 @@ class VideoSessionLifecycleTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_confirm_booking_creates_video_session_for_remote_booking(): void
+    public function test_confirm_unpaid_booking_does_not_create_video_session(): void
     {
         [$booking] = $this->bookingScenario(['status' => BookingStatus::Pending]);
 
         $confirmed = app(ConfirmBookingAction::class)($booking);
 
         $this->assertSame(BookingStatus::Confirmed, $confirmed->status);
-        $this->assertNotNull($confirmed->videoSession);
+        $this->assertNull($confirmed->videoSession);
+        $this->assertDatabaseMissing('video_sessions', [
+            'booking_id' => $booking->id,
+        ]);
+    }
+
+    public function test_confirm_package_covered_booking_creates_video_session(): void
+    {
+        [$booking] = $this->bookingScenario(['status' => BookingStatus::Pending]);
+        $clientPackage = ClientPackage::factory()
+            ->forService($booking->service)
+            ->active()
+            ->create([
+                'client_id' => $booking->client_id,
+            ]);
+        $booking->update(['client_package_id' => $clientPackage->id]);
+        PackageSession::factory()
+            ->forClientPackage($clientPackage)
+            ->forBooking($booking)
+            ->reserved()
+            ->create();
+
+        app(ConfirmBookingAction::class)($booking);
+
         $this->assertDatabaseHas('video_sessions', [
             'booking_id' => $booking->id,
             'status' => VideoSessionStatus::Scheduled->value,
@@ -87,9 +112,35 @@ class VideoSessionLifecycleTest extends TestCase
         ]);
     }
 
+    public function test_in_person_payment_does_not_create_video_session(): void
+    {
+        Event::fake([PaymentSucceeded::class]);
+        [$booking, $client] = $this->bookingScenario([
+            'status' => BookingStatus::Confirmed,
+            'modality' => 'presencial',
+        ]);
+        $paymentIntent = PaymentIntent::factory()
+            ->forBooking($booking)
+            ->pending()
+            ->create();
+
+        app(SimulatePaymentSuccessAction::class)($paymentIntent, $client);
+
+        $this->assertDatabaseHas('bookings', [
+            'id' => $booking->id,
+            'status' => BookingStatus::Paid->value,
+        ]);
+        $this->assertDatabaseMissing('video_sessions', [
+            'booking_id' => $booking->id,
+        ]);
+    }
+
     public function test_cancel_booking_cancels_video_session(): void
     {
-        [$booking, $client] = $this->bookingScenario(['status' => BookingStatus::Confirmed]);
+        [$booking, $client] = $this->bookingScenario([
+            'status' => BookingStatus::Paid,
+            'paid_at' => now(),
+        ]);
         $videoSession = app(EnsureVideoSessionForBookingAction::class)($booking);
 
         app(CancelBookingAction::class)($booking, $client);
@@ -102,7 +153,10 @@ class VideoSessionLifecycleTest extends TestCase
 
     public function test_end_video_session_marks_session_as_ended(): void
     {
-        [$booking, , $professionalUser] = $this->bookingScenario(['status' => BookingStatus::Confirmed]);
+        [$booking, , $professionalUser] = $this->bookingScenario([
+            'status' => BookingStatus::Paid,
+            'paid_at' => now(),
+        ]);
         $videoSession = app(EnsureVideoSessionForBookingAction::class)($booking);
 
         $ended = app(EndVideoSessionAction::class)($videoSession, $professionalUser);

@@ -112,7 +112,8 @@ class ProfessionalCanActAsClientTest extends TestCase
         [$professional] = $this->createProfessional();
         [, $serviceOwner] = $this->createProfessional();
         $booking = $this->createBooking($professional, $serviceOwner, [
-            'status' => BookingStatus::Confirmed,
+            'status' => BookingStatus::Paid,
+            'paid_at' => now(),
         ]);
         $videoSession = app(EnsureVideoSessionForBookingAction::class)($booking);
 

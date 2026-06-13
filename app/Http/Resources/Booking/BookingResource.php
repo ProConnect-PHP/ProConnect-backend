@@ -15,6 +15,20 @@ class BookingResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $canHaveVideoSession = $this->isVideoEligible();
+        $hasVideoSessionRow = $this->relationLoaded('videoSession')
+            ? $this->videoSession !== null
+            : (
+                array_key_exists(
+                    'video_session_exists',
+                    $this->getAttributes()
+                )
+                    ? (bool) $this->video_session_exists
+                    : false
+            );
+        $hasAccessibleVideoSession = $this->isPaymentEntitled()
+            && $hasVideoSessionRow;
+
         return [
             'id' => $this->id,
             'service_id' => $this->service_id,
@@ -25,12 +39,10 @@ class BookingResource extends JsonResource
             'ends_at' => $this->ends_at?->toDateTimeString(),
             'status' => $this->status?->value ?? $this->status,
             'modality' => $this->modality,
-            'can_have_video_session' => in_array($this->modality, ['remota', 'hibrida'], true),
+            'can_have_video_session' => $canHaveVideoSession,
             'has_video_session' => $this->when(
                 $this->relationLoaded('videoSession') || array_key_exists('video_session_exists', $this->getAttributes()),
-                fn () => $this->relationLoaded('videoSession')
-                    ? $this->videoSession !== null
-                    : (bool) $this->video_session_exists
+                $hasAccessibleVideoSession
             ),
             'price_snapshot' => $this->price_snapshot,
             'duration_minutes_snapshot' => $this->duration_minutes_snapshot,
@@ -42,7 +54,21 @@ class BookingResource extends JsonResource
             'cancellation_reason' => $this->cancellation_reason,
             'reschedule_reason' => $this->reschedule_reason,
             'payment' => new PaymentResource($this->whenLoaded('payment')),
-            'video_session' => new VideoSessionResource($this->whenLoaded('videoSession')),
+            'video_session' => $this->when(
+                $this->relationLoaded('videoSession'),
+                function () use ($hasAccessibleVideoSession) {
+                    if (! $hasAccessibleVideoSession) {
+                        return null;
+                    }
+
+                    $this->videoSession->setRelation(
+                        'booking',
+                        $this->resource
+                    );
+
+                    return new VideoSessionResource($this->videoSession);
+                }
+            ),
             'client_package' => new ClientPackageResource($this->whenLoaded('clientPackage')),
             'package_session' => new PackageSessionResource($this->whenLoaded('packageSession')),
             'payment_status' => $this->when(

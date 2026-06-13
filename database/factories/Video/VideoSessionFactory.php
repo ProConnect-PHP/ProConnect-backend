@@ -17,7 +17,7 @@ class VideoSessionFactory extends Factory
 
     public function definition(): array
     {
-        $booking = Booking::factory()->confirmed()->create();
+        $booking = Booking::factory()->paid()->create();
         $roomName = 'booking-'.$booking->id;
 
         return [

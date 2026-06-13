@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Security;
 
+use App\Actions\Video\EnsureVideoSessionForBookingAction;
 use App\Enums\Booking\BookingStatus;
 use App\Models\Booking\Booking;
 use App\Models\Service\Service;
@@ -107,6 +108,15 @@ class RateLimitingTest extends TestCase
         ]);
 
         [$booking, $client] = $this->bookingScenario();
+        $startsAt = now()->addMinutes(10);
+        $booking->update([
+            'status' => BookingStatus::Paid,
+            'paid_at' => now(),
+            'starts_at' => $startsAt,
+            'ends_at' => $startsAt->copy()->addHour(),
+        ]);
+        app(EnsureVideoSessionForBookingAction::class)($booking->refresh());
+
         $request = $this->withHeaders($this->authHeaders($client));
         $endpoint = "/api/v1/video-sessions/bookings/{$booking->id}/join";
 

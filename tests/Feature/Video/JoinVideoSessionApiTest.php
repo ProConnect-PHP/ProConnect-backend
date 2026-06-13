@@ -109,6 +109,22 @@ class JoinVideoSessionApiTest extends TestCase
             ->assertJsonPath('error.type', 'VideoSessionJoinWindowClosed');
     }
 
+    public function test_unpaid_booking_cannot_join_legacy_video_session(): void
+    {
+        [$videoSession, $client, , $booking] = $this->videoSessionScenario();
+        $booking->update([
+            'status' => BookingStatus::Confirmed,
+            'paid_at' => null,
+        ]);
+        Carbon::setTestNow('2026-06-15 08:50:00');
+
+        $this
+            ->withHeaders($this->authHeaders($client))
+            ->postJson("/api/v1/video-sessions/{$videoSession->id}/join")
+            ->assertForbidden()
+            ->assertJsonPath('error.type', 'VideoSessionPaymentRequired');
+    }
+
     public function test_cannot_join_cancelled_session(): void
     {
         [$videoSession, $client] = $this->videoSessionScenario();
@@ -182,8 +198,9 @@ class JoinVideoSessionApiTest extends TestCase
             'client_id' => $client->id,
             'starts_at' => '2026-06-15 09:00:00',
             'ends_at' => '2026-06-15 10:00:00',
-            'status' => BookingStatus::Confirmed,
+            'status' => BookingStatus::Paid,
             'confirmed_at' => now(),
+            'paid_at' => now(),
             'modality' => 'remota',
             'price_snapshot' => $service->price,
             'duration_minutes_snapshot' => 60,

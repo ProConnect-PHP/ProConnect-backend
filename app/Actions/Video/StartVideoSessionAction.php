@@ -22,6 +22,7 @@ class StartVideoSessionAction
     {
         $videoSession = DB::transaction(function () use ($videoSession, $user) {
             $videoSession = VideoSession::query()
+                ->with(['booking.payment', 'booking.packageSession'])
                 ->whereKey($videoSession->id)
                 ->lockForUpdate()
                 ->firstOrFail();
@@ -50,6 +51,22 @@ class StartVideoSessionAction
                     error: 'VideoSessionEnded',
                     message: 'Esta sesion virtual ya finalizo.',
                     status: Response::HTTP_CONFLICT
+                );
+            }
+
+            if (! $videoSession->booking->isPaymentEntitled()) {
+                throw new ApiException(
+                    error: 'VideoSessionPaymentRequired',
+                    message: 'La reserva debe estar pagada o cubierta por un paquete para acceder a la videollamada.',
+                    status: Response::HTTP_FORBIDDEN
+                );
+            }
+
+            if (! $videoSession->booking->canJoinVideoSession()) {
+                throw new ApiException(
+                    error: 'BookingNotEligibleForVideoSession',
+                    message: 'Esta reserva no puede acceder a una sesion virtual.',
+                    status: Response::HTTP_FORBIDDEN
                 );
             }
 
