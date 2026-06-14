@@ -262,7 +262,7 @@ class MercadoPagoPaymentProviderTest extends TestCase
         Event::fake([PaymentSucceeded::class]);
         Http::preventStrayRequests();
         $this->configureMercadoPago();
-        Log::spy();
+        $this->spyLogAllowingChannels();
 
         [, $booking] = $this->confirmedBookingScenario();
         $intent = PaymentIntent::factory()
@@ -951,7 +951,7 @@ class MercadoPagoPaymentProviderTest extends TestCase
             ], 400),
         ]);
         $this->configureMercadoPago();
-        Log::spy();
+        $this->spyLogAllowingChannels();
         [$client, $booking] = $this->confirmedBookingScenario();
         $intent = PaymentIntent::factory()
             ->forBooking($booking)
@@ -1190,5 +1190,22 @@ class MercadoPagoPaymentProviderTest extends TestCase
                     .'&type=payment',
                 $payload
             );
+    }
+
+    private function spyLogAllowingChannels(): void
+    {
+        Log::spy();
+
+        Log::shouldReceive('channel')
+            ->andReturnSelf()
+            ->byDefault();
+
+        Log::shouldReceive('stack')
+            ->andReturnSelf()
+            ->byDefault();
+
+        Log::shouldReceive('driver')
+            ->andReturnSelf()
+            ->byDefault();
     }
 }
