@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Log;
 
 class SendBookingCancelledNotification implements ShouldQueue
 {
+    public bool $afterCommit = true;
 
     public function handle(BookingCancelled $event): void
     {

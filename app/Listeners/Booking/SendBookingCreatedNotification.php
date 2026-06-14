@@ -11,6 +11,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 
 class SendBookingCreatedNotification implements ShouldQueue
 {
+    public bool $afterCommit = true;
 
     public function handle(BookingCreated $event): void
     {

@@ -336,59 +336,97 @@ class BookingNotificationTest extends TestCase
         $this->assertDatabaseCount('notifications', 0);
         $this->assertDatabaseCount('notification_logs', 0);
     }
+public function test_repeated_cancellation_does_not_duplicate_notifications(): void
+{
+    Mail::fake();
 
-    public function test_repeated_cancellation_does_not_duplicate_notifications(): void
-    {
-        Mail::fake();
+    [$professionalUser, $profile] = $this->createProfessional();
 
-        [$professionalUser, $profile] = $this->createProfessional();
-        $client = User::factory()->create();
-        $service = $this->createBookableService([
-            'professional_id' => $profile->id,
-        ]);
-        $booking = $this->createBooking($service, $client);
-        $url = "/api/v1/bookings/{$booking->id}/cancel";
+    $client = User::factory()->create();
 
-        $this
-            ->withHeaders($this->authHeaders($client))
-            ->postJson($url)
-            ->assertOk();
+    $service = $this->createBookableService([
+        'professional_id' => $profile->id,
+    ]);
 
-        $this
-            ->withHeaders($this->authHeaders($client))
-            ->postJson($url)
-            ->assertConflict();
+    $booking = $this->createBooking($service, $client);
 
-        $this->assertSame(
-            1,
-            Notification::query()
-                ->where('recipient_id', $professionalUser->id)
-                ->where('type', 'booking.cancelled_by_client')
-                ->count()
-        );
-        $this->assertSame(
-            1,
-            Notification::query()
-                ->where('recipient_id', $client->id)
-                ->where('type', 'booking.cancelled_by_client_confirmation')
-                ->count()
-        );
-        $this->assertDatabaseHas('notification_logs', [
-            'booking_id' => $booking->id,
-            'user_id' => $professionalUser->id,
-            'channel' => 'database',
-            'type' => 'booking.cancelled_by_client',
-            'status' => 'sent',
-        ]);
-        $this->assertDatabaseHas('notification_logs', [
-            'booking_id' => $booking->id,
-            'user_id' => $client->id,
-            'channel' => 'database',
-            'type' => 'booking.cancelled_by_client_confirmation',
-            'status' => 'sent',
-        ]);
-    }
+    $url = "/api/v1/bookings/{$booking->id}/cancel";
 
+    $this
+        ->withHeaders($this->authHeaders($client))
+        ->postJson($url)
+        ->assertOk();
+
+    $this->runBookingCancelledNotificationListener($booking, $client);
+
+    $this
+        ->withHeaders($this->authHeaders($client))
+        ->postJson($url)
+        ->assertConflict();
+
+    $this->assertSame(
+        1,
+        Notification::query()
+            ->where('recipient_id', $professionalUser->id)
+            ->where('type', 'booking.cancelled_by_client')
+            ->count()
+    );
+
+    $this->assertSame(
+        1,
+        Notification::query()
+            ->where('recipient_id', $client->id)
+            ->where('type', 'booking.cancelled_by_client_confirmation')
+            ->count()
+    );
+
+    $this->assertDatabaseHas('notification_logs', [
+        'booking_id' => $booking->id,
+        'user_id' => $professionalUser->id,
+        'channel' => 'database',
+        'type' => 'booking.cancelled_by_client',
+        'status' => 'sent',
+    ]);
+
+    $this->assertDatabaseHas('notification_logs', [
+        'booking_id' => $booking->id,
+        'user_id' => $client->id,
+        'channel' => 'database',
+        'type' => 'booking.cancelled_by_client_confirmation',
+        'status' => 'sent',
+    ]);
+}
+
+public function test_repeated_cancellation_dispatches_cancelled_event_only_once(): void
+{
+    Event::fake([
+        BookingCancelled::class,
+    ]);
+
+    [$professionalUser, $profile] = $this->createProfessional();
+
+    $client = User::factory()->create();
+
+    $service = $this->createBookableService([
+        'professional_id' => $profile->id,
+    ]);
+
+    $booking = $this->createBooking($service, $client);
+
+    $url = "/api/v1/bookings/{$booking->id}/cancel";
+
+    $this
+        ->withHeaders($this->authHeaders($client))
+        ->postJson($url)
+        ->assertOk();
+
+    $this
+        ->withHeaders($this->authHeaders($client))
+        ->postJson($url)
+        ->assertConflict();
+
+    Event::assertDispatchedTimes(BookingCancelled::class, 1);
+}
     public function test_booking_rescheduled_event_includes_actor(): void
     {
         [$professionalUser, $profile] = $this->createProfessional();
@@ -630,4 +668,17 @@ class BookingNotificationTest extends TestCase
             'Accept' => 'application/json',
         ];
     }
+    private function runBookingCancelledNotificationListener(Booking $booking, User $actor): void
+{
+    app(SendBookingCancelledNotification::class)->handle(
+        new BookingCancelled(
+            booking: $booking->fresh([
+                'service',
+                'professional.user',
+                'client',
+            ]),
+            actor: $actor,
+        )
+    );
+}
 }
