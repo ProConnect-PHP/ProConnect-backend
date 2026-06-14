@@ -1,10 +1,22 @@
 FROM php:8.5-fpm-alpine
 
 RUN apk add --no-cache \
-    bash curl git unzip libzip-dev icu-dev oniguruma-dev \
-    postgresql-dev linux-headers autoconf g++ make nginx npm
+    bash curl git unzip \
+    libzip-dev icu-dev oniguruma-dev \
+    postgresql-dev linux-headers autoconf g++ make nginx npm \
+    freetype-dev libjpeg-turbo-dev libpng-dev
 
-RUN docker-php-ext-install pdo pdo_pgsql pgsql bcmath intl zip gd opcache pcntl sockets
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install \
+        pdo \
+        pdo_pgsql \
+        pgsql \
+        bcmath \
+        intl \
+        zip \
+        gd \
+        pcntl \
+        sockets
 
 RUN pecl install redis mongodb \
     && docker-php-ext-enable redis mongodb
@@ -14,7 +26,13 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 WORKDIR /var/www/html
 
 COPY composer.json composer.lock ./
-RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
+
+RUN composer install \
+    --no-dev \
+    --prefer-dist \
+    --optimize-autoloader \
+    --no-interaction \
+    --no-scripts
 
 COPY . .
 
