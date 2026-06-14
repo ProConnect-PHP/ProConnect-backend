@@ -5,8 +5,8 @@ namespace App\Actions\Video;
 use App\Enums\Booking\BookingStatus;
 use App\Enums\Video\VideoProvider;
 use App\Enums\Video\VideoSessionStatus;
-use App\Exceptions\ApiException;
 use App\Events\Video\VideoSessionCreated;
+use App\Exceptions\ApiException;
 use App\Models\Booking\Booking;
 use App\Models\Video\VideoSession;
 use Illuminate\Support\Facades\DB;
@@ -18,14 +18,17 @@ class EnsureVideoSessionForBookingAction
     {
         return DB::transaction(function () use ($booking) {
             $booking = Booking::query()
-                ->with(['service', 'videoSession'])
+                ->with([
+                    'service',
+                    'payment',
+                    'packageSession',
+                    'videoSession',
+                ])
                 ->whereKey($booking->id)
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            $modality = $booking->modality ?: $booking->service?->modality;
-
-            if (! in_array($modality, ['remota', 'hibrida'], true)) {
+            if (! $booking->isVideoEligible()) {
                 throw new ApiException(
                     error: 'VideoSessionNotAllowedForModality',
                     message: 'Esta reserva no requiere sesion virtual.',
@@ -33,8 +36,12 @@ class EnsureVideoSessionForBookingAction
                 );
             }
 
-            if ($booking->videoSession) {
-                return $booking->videoSession->load(['booking', 'participants']);
+            if (! $booking->isPaymentEntitled()) {
+                throw new ApiException(
+                    error: 'VideoSessionPaymentRequired',
+                    message: 'La reserva debe estar pagada o cubierta por un paquete para acceder a la videollamada.',
+                    status: Response::HTTP_FORBIDDEN
+                );
             }
 
             if (in_array($booking->status, [
@@ -47,6 +54,14 @@ class EnsureVideoSessionForBookingAction
                     message: 'Esta reserva no puede crear una sesion virtual.',
                     status: Response::HTTP_CONFLICT
                 );
+            }
+
+            if ($booking->videoSession) {
+                return $booking->videoSession->load([
+                    'booking.payment',
+                    'booking.packageSession',
+                    'participants',
+                ]);
             }
 
             $provider = VideoProvider::tryFrom((string) config('proconnect.video.provider', 'simulator'))
@@ -74,7 +89,11 @@ class EnsureVideoSessionForBookingAction
                 event(new VideoSessionCreated($videoSession->id));
             });
 
-            return $videoSession->load(['booking', 'participants']);
+            return $videoSession->load([
+                'booking.payment',
+                'booking.packageSession',
+                'participants',
+            ]);
         });
     }
 }

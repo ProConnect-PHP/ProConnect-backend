@@ -40,7 +40,9 @@ class ConfirmBookingAction
                 'confirmed_at' => now(),
             ]);
 
-            if (in_array($booking->modality, ['remota', 'hibrida'], true)) {
+            $booking->loadMissing(['payment', 'packageSession']);
+
+            if ($booking->canProvisionVideoSession()) {
                 ($this->ensureVideoSessionForBooking)($booking);
             }
 

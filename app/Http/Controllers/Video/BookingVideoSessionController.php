@@ -16,9 +16,22 @@ class BookingVideoSessionController extends Controller
     public function show(Booking $booking): JsonResponse
     {
         Gate::authorize('view', $booking);
+        $booking->loadMissing(['payment', 'packageSession']);
+
+        if (! $booking->isPaymentEntitled()) {
+            throw new ApiException(
+                error: 'VideoSessionNotFound',
+                message: 'Esta reserva no tiene sesion virtual.',
+                status: Response::HTTP_NOT_FOUND
+            );
+        }
 
         $videoSession = $booking->videoSession()
-            ->with(['booking', 'participants'])
+            ->with([
+                'booking.payment',
+                'booking.packageSession',
+                'participants',
+            ])
             ->first();
 
         if (! $videoSession) {

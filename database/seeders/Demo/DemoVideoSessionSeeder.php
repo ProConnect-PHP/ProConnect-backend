@@ -23,9 +23,18 @@ class DemoVideoSessionSeeder extends Seeder
             BookingStatus::Completed,
             BookingStatus::Cancelled,
         ] as $status) {
+            $isHistorical = in_array($status, [
+                BookingStatus::Completed,
+                BookingStatus::Cancelled,
+            ], true);
+
             Booking::query()
                 ->whereIn('modality', ['remota', 'hibrida'])
                 ->where('status', $status->value)
+                ->when(
+                    ! $isHistorical,
+                    fn ($query) => $query->paymentEntitled()
+                )
                 ->orderBy('starts_at')
                 ->take($status === BookingStatus::Confirmed ? 3 : 2)
                 ->get()

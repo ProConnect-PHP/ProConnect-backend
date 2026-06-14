@@ -10,6 +10,10 @@ class VideoSessionResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $bookingAllowsJoin = $this->relationLoaded('booking')
+            && $this->booking !== null
+            && $this->booking->canJoinVideoSession();
+
         return [
             'id' => $this->id,
             'booking_id' => $this->booking_id,
@@ -26,7 +30,10 @@ class VideoSessionResource extends JsonResource
             'ended_at' => $this->ended_at?->toDateTimeString(),
             'cancelled_at' => $this->cancelled_at?->toDateTimeString(),
             'expired_at' => $this->expired_at?->toDateTimeString(),
-            'can_join_now' => $this->isJoinWindowOpen() && ! $this->hasEnded() && ! $this->isCancelled(),
+            'can_join_now' => $bookingAllowsJoin
+                && $this->isJoinWindowOpen()
+                && ! $this->hasEnded()
+                && ! $this->isCancelled(),
             'booking' => $this->whenLoaded('booking', fn () => [
                 'id' => $this->booking->id,
                 'status' => $this->booking->status instanceof BackedEnum

@@ -3,6 +3,8 @@
 namespace App\Models\Booking;
 
 use App\Enums\Booking\BookingStatus;
+use App\Enums\Package\PackageSessionStatus;
+use App\Enums\Payment\PaymentStatus;
 use App\Models\Package\ClientPackage;
 use App\Models\Package\PackageSession;
 use App\Models\Payment\Payment;
@@ -13,6 +15,7 @@ use App\Models\User\ProfessionalProfile;
 use App\Models\User\User;
 use App\Models\Video\VideoSession;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -140,5 +143,98 @@ class Booking extends Model
             BookingStatus::Confirmed,
             BookingStatus::Paid,
         ], true) && $this->starts_at?->isFuture();
+    }
+
+    public function isVideoEligible(): bool
+    {
+        return in_array($this->modality, ['remota', 'hibrida'], true);
+    }
+
+    public function isPaymentEntitled(): bool
+    {
+        if ($this->status === BookingStatus::Paid || $this->paid_at !== null) {
+            return true;
+        }
+
+        $paymentSucceeded = $this->relationLoaded('payment')
+            ? $this->payment?->status === PaymentStatus::Succeeded
+            : $this->payment()
+                ->where('status', PaymentStatus::Succeeded->value)
+                ->exists();
+
+        if ($paymentSucceeded) {
+            return true;
+        }
+
+        if ($this->client_package_id === null) {
+            return false;
+        }
+
+        $entitledPackageStatuses = [
+            PackageSessionStatus::Reserved,
+            PackageSessionStatus::Consumed,
+        ];
+
+        return $this->relationLoaded('packageSession')
+            ? in_array(
+                $this->packageSession?->status,
+                $entitledPackageStatuses,
+                true
+            )
+            : $this->packageSession()
+                ->whereIn(
+                    'status',
+                    array_map(
+                        static fn (PackageSessionStatus $status): string => $status->value,
+                        $entitledPackageStatuses
+                    )
+                )
+                ->exists();
+    }
+
+    public function canProvisionVideoSession(): bool
+    {
+        return $this->isVideoEligible()
+            && $this->isPaymentEntitled()
+            && in_array($this->status, [
+                BookingStatus::Confirmed,
+                BookingStatus::Paid,
+                BookingStatus::InProgress,
+            ], true);
+    }
+
+    public function canJoinVideoSession(): bool
+    {
+        return $this->canProvisionVideoSession();
+    }
+
+    public function scopePaymentEntitled(Builder $query): Builder
+    {
+        return $query->where(function (Builder $query): void {
+            $query
+                ->where('status', BookingStatus::Paid->value)
+                ->orWhereNotNull('paid_at')
+                ->orWhereHas(
+                    'payment',
+                    fn (Builder $payment): Builder => $payment->where(
+                        'status',
+                        PaymentStatus::Succeeded->value
+                    )
+                )
+                ->orWhere(function (Builder $package): void {
+                    $package
+                        ->whereNotNull('client_package_id')
+                        ->whereHas(
+                            'packageSession',
+                            fn (Builder $session): Builder => $session->whereIn(
+                                'status',
+                                [
+                                    PackageSessionStatus::Reserved->value,
+                                    PackageSessionStatus::Consumed->value,
+                                ]
+                            )
+                        );
+                });
+        });
     }
 }

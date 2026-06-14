@@ -8,6 +8,7 @@ use App\Models\Booking\Booking;
 use App\Models\Service\Service;
 use App\Models\User\ProfessionalProfile;
 use App\Models\User\User;
+use App\Models\Video\VideoSession;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -125,6 +126,56 @@ class BookingManagementApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('booking.id', $booking->id)
             ->assertJsonPath('booking.professional.id', $profile->id);
+    }
+
+    public function test_unpaid_confirmed_booking_hides_legacy_video_session(): void
+    {
+        $client = User::factory()->create();
+        $service = $this->createBookableService([
+            'modality' => 'hibrida',
+        ]);
+        $booking = $this->createBooking($service, $client, [
+            'status' => BookingStatus::Confirmed,
+            'confirmed_at' => now(),
+            'paid_at' => null,
+        ]);
+        VideoSession::factory()->forBooking($booking)->scheduled()->create();
+
+        $this
+            ->withHeaders($this->authHeaders($client))
+            ->getJson("/api/v1/bookings/{$booking->id}")
+            ->assertOk()
+            ->assertJsonPath('booking.status', BookingStatus::Confirmed->value)
+            ->assertJsonPath('booking.paid_at', null)
+            ->assertJsonPath('booking.payment', null)
+            ->assertJsonPath('booking.can_have_video_session', true)
+            ->assertJsonPath('booking.has_video_session', false)
+            ->assertJsonPath('booking.video_session', null)
+            ->assertJsonPath('booking.can_pay', true);
+    }
+
+    public function test_paid_booking_exposes_video_session(): void
+    {
+        $client = User::factory()->create();
+        $service = $this->createBookableService([
+            'modality' => 'remota',
+        ]);
+        $booking = $this->createBooking($service, $client, [
+            'status' => BookingStatus::Paid,
+            'confirmed_at' => now(),
+            'paid_at' => now(),
+        ]);
+        $videoSession = VideoSession::factory()
+            ->forBooking($booking)
+            ->scheduled()
+            ->create();
+
+        $this
+            ->withHeaders($this->authHeaders($client))
+            ->getJson("/api/v1/bookings/{$booking->id}")
+            ->assertOk()
+            ->assertJsonPath('booking.has_video_session', true)
+            ->assertJsonPath('booking.video_session.id', $videoSession->id);
     }
 
     public function test_stranger_cannot_view_booking(): void

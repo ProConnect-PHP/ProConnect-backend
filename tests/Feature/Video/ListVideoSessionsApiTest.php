@@ -8,6 +8,7 @@ use App\Models\Booking\Booking;
 use App\Models\Service\Service;
 use App\Models\User\ProfessionalProfile;
 use App\Models\User\User;
+use App\Models\Video\VideoSession;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -80,6 +81,23 @@ class ListVideoSessionsApiTest extends TestCase
         $this->assertNotSame($firstVideoSession->id, $response->json('video_sessions.0.id'));
     }
 
+    public function test_unpaid_legacy_video_session_is_not_listed(): void
+    {
+        [$videoSession, $client, , $booking] = $this->videoSessionScenario();
+        $booking->update([
+            'status' => BookingStatus::Confirmed,
+            'paid_at' => null,
+        ]);
+
+        $this
+            ->withHeaders($this->authHeaders($client))
+            ->getJson('/api/v1/video-sessions/my')
+            ->assertOk()
+            ->assertJsonCount(0, 'video_sessions');
+
+        $this->assertTrue(VideoSession::query()->whereKey($videoSession->id)->exists());
+    }
+
     private function videoSessionScenario(
         string $startsAt = '2026-06-15 09:00:00',
         ?User $client = null
@@ -100,8 +118,9 @@ class ListVideoSessionsApiTest extends TestCase
             'client_id' => $client->id,
             'starts_at' => $startsAt,
             'ends_at' => Carbon::parse($startsAt)->addHour(),
-            'status' => BookingStatus::Confirmed,
+            'status' => BookingStatus::Paid,
             'confirmed_at' => now(),
+            'paid_at' => now(),
             'modality' => 'remota',
             'price_snapshot' => $service->price,
             'duration_minutes_snapshot' => 60,

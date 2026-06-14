@@ -60,7 +60,22 @@ class EnsureVideoSessionApiTest extends TestCase
             ->assertJsonPath('error.type', 'Forbidden');
     }
 
-    public function test_can_create_video_session_for_remote_confirmed_booking(): void
+    public function test_unpaid_booking_cannot_view_legacy_video_session(): void
+    {
+        [$booking, $client] = $this->bookingScenario([
+            'status' => BookingStatus::Confirmed,
+            'paid_at' => null,
+        ]);
+        VideoSession::factory()->forBooking($booking)->scheduled()->create();
+
+        $this
+            ->withHeaders($this->authHeaders($client))
+            ->getJson("/api/v1/bookings/{$booking->id}/video-session")
+            ->assertNotFound()
+            ->assertJsonPath('error.type', 'VideoSessionNotFound');
+    }
+
+    public function test_can_create_video_session_for_remote_paid_booking(): void
     {
         [$booking, $client] = $this->bookingScenario(['modality' => 'remota']);
 
@@ -78,7 +93,7 @@ class EnsureVideoSessionApiTest extends TestCase
         ]);
     }
 
-    public function test_can_create_video_session_for_hybrid_confirmed_booking(): void
+    public function test_can_create_video_session_for_hybrid_paid_booking(): void
     {
         [$booking, $client] = $this->bookingScenario(['modality' => 'hibrida']);
 
@@ -98,6 +113,24 @@ class EnsureVideoSessionApiTest extends TestCase
             ->postJson("/api/v1/bookings/{$booking->id}/video-session")
             ->assertConflict()
             ->assertJsonPath('error.type', 'VideoSessionNotAllowedForModality');
+
+        $this->assertDatabaseMissing('video_sessions', [
+            'booking_id' => $booking->id,
+        ]);
+    }
+
+    public function test_cannot_create_video_session_for_unpaid_confirmed_booking(): void
+    {
+        [$booking, $client] = $this->bookingScenario([
+            'status' => BookingStatus::Confirmed,
+            'paid_at' => null,
+        ]);
+
+        $this
+            ->withHeaders($this->authHeaders($client))
+            ->postJson("/api/v1/bookings/{$booking->id}/video-session")
+            ->assertForbidden()
+            ->assertJsonPath('error.type', 'VideoSessionPaymentRequired');
 
         $this->assertDatabaseMissing('video_sessions', [
             'booking_id' => $booking->id,
@@ -160,8 +193,9 @@ class EnsureVideoSessionApiTest extends TestCase
             'client_id' => $client->id,
             'starts_at' => now()->addDays(3)->setTime(9, 0),
             'ends_at' => now()->addDays(3)->setTime(10, 0),
-            'status' => BookingStatus::Confirmed,
+            'status' => BookingStatus::Paid,
             'confirmed_at' => now(),
+            'paid_at' => now(),
             'modality' => $modality,
             'price_snapshot' => $service->price,
             'duration_minutes_snapshot' => $service->duration_minutes,
