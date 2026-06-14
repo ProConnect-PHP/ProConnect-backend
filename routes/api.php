@@ -39,7 +39,24 @@ use App\Http\Controllers\Video\ProfessionalVideoSessionController;
 use App\Http\Controllers\Video\VideoSessionJoinController;
 use App\Modules\VideoSession\Infrastructure\Http\Controllers\JoinVideoSessionController as LiveKitJoinVideoSessionController;
 use Illuminate\Support\Facades\Route;
+Route::get('/v1/debug/static', function () {
+    return response()->json([
+        'ok' => true,
+        'time' => now()->toISOString(),
+    ]);
+});
+use Illuminate\Support\Facades\DB;
 
+Route::get('/v1/debug/db', function () {
+    $startedAt = microtime(true);
+
+    $count = DB::table('services')->count();
+
+    return response()->json([
+        'count' => $count,
+        'duration_ms' => round((microtime(true) - $startedAt) * 1000, 2),
+    ]);
+});
 Route::prefix('v1')->group(function (): void {
     Route::post('/payments/webhooks/mercadopago', [PaymentWebhookController::class, 'mercadoPago'])
         ->middleware('throttle:payment-webhooks')
