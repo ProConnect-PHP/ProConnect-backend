@@ -19,7 +19,7 @@ class ActivityLoggerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-
+        $this->useSynchronousActivityLogQueue();
         $this->clearActivityLogs();
     }
 
@@ -72,6 +72,7 @@ class ActivityLoggerTest extends TestCase
     public function test_activity_logger_does_not_break_when_mongodb_fails(): void
     {
         $original = config('database.connections.mongodb');
+        $originalLogger = Log::getFacadeRoot();
 
         try {
             config()->set('database.connections.mongodb', [
@@ -82,20 +83,35 @@ class ActivityLoggerTest extends TestCase
                     'connectTimeoutMS' => 50,
                 ],
             ]);
+
             DB::purge('mongodb');
+
             Log::spy();
 
             app(ActivityLogger::class)->record(event: 'system.mongodb-unavailable');
 
             Log::shouldHaveReceived('warning')
-                ->once()
                 ->with(
-                    'Could not write activity log to MongoDB.',
-                    Mockery::on(fn (array $context): bool => $context['event'] === 'system.mongodb-unavailable')
-                );
+                    'Could not write queued activity log to MongoDB.',
+                    Mockery::on(
+                        fn (array $context): bool => ($context['event'] ?? null) === 'system.mongodb-unavailable'
+                    )
+                )
+                ->once();
+
+            Log::shouldHaveReceived('warning')
+                ->with(
+                    'Could not dispatch activity log job.',
+                    Mockery::on(
+                        fn (array $context): bool => ($context['event'] ?? null) === 'system.mongodb-unavailable'
+                    )
+                )
+                ->once();
         } finally {
             config()->set('database.connections.mongodb', $original);
             DB::purge('mongodb');
+
+            Log::swap($originalLogger);
         }
     }
 

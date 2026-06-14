@@ -67,7 +67,7 @@ services:
             proconnect_mailpit:
                 condition: service_started
             proconnect_mongodb:
-                condition: service_started
+                condition: service_healthy
             proconnect_reverb:
                 condition: service_started
 
@@ -133,7 +133,7 @@ services:
             proconnect_pgsql:
                 condition: service_healthy
             proconnect_mongodb:
-                condition: service_started
+                condition: service_healthy
             proconnect_reverb:
                 condition: service_started
         restart: unless-stopped
@@ -255,6 +255,16 @@ services:
             - 'proconnect-mongodb:/data/db'
         networks:
             - sail
+        healthcheck:
+            test:
+                - CMD
+                - mongosh
+                - --quiet
+                - --eval
+                - "db.adminCommand('ping').ok"
+            interval: 5s
+            timeout: 5s
+            retries: 20
 
     proconnect_mailpit:
         image: 'axllent/mailpit:latest'

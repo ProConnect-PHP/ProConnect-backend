@@ -7,6 +7,12 @@ use Illuminate\Support\Facades\DB;
 
 trait InteractsWithActivityLogs
 {
+    protected function useSynchronousActivityLogQueue(): void
+    {
+        config()->set('queue.default', 'sync');
+        config()->set('queue.connections.sync.driver', 'sync');
+    }
+
     protected function clearActivityLogs(): void
     {
         DB::connection('mongodb')
