@@ -8,6 +8,7 @@ use App\Events\Booking\BookingConfirmed;
 use App\Exceptions\ApiException;
 use App\Models\Booking\Booking;
 use App\Services\Notification\NotificationService;
+use App\Support\Booking\BookingNotificationContext;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -62,7 +63,8 @@ class ConfirmBookingAction
                     type: 'booking.confirmed',
                     title: 'Reserva confirmada',
                     message: "Tu reserva para el servicio '{$booking->service->name}' ha sido confirmada.",
-                    actionRoute: "/bookings/{$booking->id}"
+                    actionRoute: BookingNotificationContext::actionRoute($booking, $booking->client),
+                    metadata: BookingNotificationContext::metadata($booking)
                 );
             });
 

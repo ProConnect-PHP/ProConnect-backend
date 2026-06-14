@@ -12,6 +12,7 @@ use App\Models\Package\ClientPackage;
 use App\Models\Service\Service;
 use App\Models\User\User;
 use App\Services\Notification\NotificationService;
+use App\Support\Booking\BookingNotificationContext;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -77,8 +78,8 @@ class CreateBookingAction
                 event(new BookingCreated($booking));
             });
 
-            DB::afterCommit(function () use ($booking, $service): void {
-                $professionalUser = $service->professional->user ?? null;
+            DB::afterCommit(function () use ($booking): void {
+                $professionalUser = $booking->professional?->user;
 
                 if ($professionalUser) {
                     $this->notificationService->send(
@@ -86,7 +87,8 @@ class CreateBookingAction
                         type: 'booking.created',
                         title: 'Nueva reserva',
                         message: 'Tienes una nueva reserva pendiente.',
-                        actionRoute: "/professional/bookings/{$booking->id}"
+                        actionRoute: BookingNotificationContext::actionRoute($booking, $professionalUser),
+                        metadata: BookingNotificationContext::metadata($booking)
                     );
                 }
             });

@@ -170,17 +170,11 @@ class BookingNotificationTest extends TestCase
         $this->assertNotNull($notification->metadata['ends_at']);
         $this->assertNotNull($notification->metadata['cancelled_at']);
 
-        $this->assertFalse(
-            Notification::query()
-                ->where('recipient_id', $client->id)
-                ->where('type', 'booking.cancelled_by_client')
-                ->exists()
-        );
-
         Event::assertDispatched(
             NotificationCreated::class,
             fn (NotificationCreated $event): bool => $event->notification->is($notification)
         );
+        Event::assertDispatchedTimes(NotificationCreated::class, 2);
 
         $this
             ->withHeaders($this->authHeaders($professionalUser))
@@ -190,9 +184,61 @@ class BookingNotificationTest extends TestCase
             ->assertJsonPath('data.0.metadata.booking_id', $booking->id);
     }
 
+    public function test_client_cancellation_creates_confirmation_for_client(): void
+    {
+        Mail::fake();
+
+        [, $profile] = $this->createProfessional();
+        $client = User::factory()->create();
+        $service = $this->createBookableService([
+            'professional_id' => $profile->id,
+        ]);
+        $booking = $this->createBooking($service, $client);
+
+        $this
+            ->withHeaders($this->authHeaders($client))
+            ->postJson("/api/v1/bookings/{$booking->id}/cancel", [
+                'reason' => 'Cambio de agenda',
+            ])
+            ->assertOk();
+
+        $confirmation = Notification::query()
+            ->where('recipient_id', $client->id)
+            ->where('type', 'booking.cancelled_by_client_confirmation')
+            ->firstOrFail();
+
+        $this->assertSame('Has cancelado tu reserva', $confirmation->title);
+        $this->assertStringContainsString(
+            'Has cancelado tu reserva',
+            $confirmation->message
+        );
+        $this->assertSame("/my-bookings/{$booking->id}", $confirmation->action_route);
+        $this->assertSame('client', $confirmation->metadata['cancelled_by_role']);
+        $this->assertSame($client->id, $confirmation->metadata['cancelled_by']);
+        $this->assertSame(
+            $booking->refresh()->cancelled_at?->toISOString(),
+            $confirmation->metadata['cancelled_at']
+        );
+
+        $this
+            ->withHeaders($this->authHeaders($client))
+            ->getJson('/api/v1/notifications')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $confirmation->id);
+
+        $this->assertDatabaseHas('notification_logs', [
+            'booking_id' => $booking->id,
+            'user_id' => $client->id,
+            'channel' => 'database',
+            'type' => 'booking.cancelled_by_client_confirmation',
+            'status' => 'sent',
+        ]);
+    }
+
     public function test_professional_cancellation_notifies_client_in_app(): void
     {
         Mail::fake();
+        Event::fake([NotificationCreated::class]);
 
         [$professionalUser, $profile] = $this->createProfessional();
         $client = User::factory()->create();
@@ -213,13 +259,64 @@ class BookingNotificationTest extends TestCase
             ->where('type', 'booking.cancelled_by_professional')
             ->firstOrFail();
 
+        $this->assertSame(
+            'Reserva cancelada por el profesional',
+            $notification->title
+        );
+        $this->assertStringContainsString(
+            'canceló tu reserva',
+            $notification->message
+        );
         $this->assertSame('professional', $notification->metadata['cancelled_by_role']);
         $this->assertSame($professionalUser->id, $notification->metadata['cancelled_by']);
         $this->assertSame(
             'Indisponibilidad profesional',
             $notification->metadata['cancellation_reason']
         );
-        $this->assertSame("/bookings/{$booking->id}", $notification->action_route);
+        $this->assertSame("/my-bookings/{$booking->id}", $notification->action_route);
+        Event::assertDispatchedTimes(NotificationCreated::class, 2);
+    }
+
+    public function test_professional_cancellation_creates_confirmation_for_professional(): void
+    {
+        Mail::fake();
+
+        [$professionalUser, $profile] = $this->createProfessional();
+        $client = User::factory()->create([
+            'name' => 'Cliente Demo',
+        ]);
+        $service = $this->createBookableService([
+            'professional_id' => $profile->id,
+        ]);
+        $booking = $this->createBooking($service, $client);
+
+        $this
+            ->withHeaders($this->authHeaders($professionalUser))
+            ->postJson("/api/v1/bookings/{$booking->id}/cancel")
+            ->assertOk();
+
+        $confirmation = Notification::query()
+            ->where('recipient_id', $professionalUser->id)
+            ->where('type', 'booking.cancelled_by_professional_confirmation')
+            ->firstOrFail();
+
+        $this->assertSame('Has cancelado una reserva', $confirmation->title);
+        $this->assertStringContainsString(
+            'Has cancelado la reserva de Cliente Demo',
+            $confirmation->message
+        );
+        $this->assertSame(
+            "/professional/bookings/{$booking->id}",
+            $confirmation->action_route
+        );
+        $this->assertSame(
+            'professional',
+            $confirmation->metadata['cancelled_by_role']
+        );
+        $this->assertSame(
+            $professionalUser->id,
+            $confirmation->metadata['cancelled_by']
+        );
     }
 
     public function test_stranger_cannot_cancel_or_create_notification(): void
@@ -240,7 +337,7 @@ class BookingNotificationTest extends TestCase
         $this->assertDatabaseCount('notification_logs', 0);
     }
 
-    public function test_repeated_cancellation_does_not_duplicate_notification(): void
+    public function test_repeated_cancellation_does_not_duplicate_notifications(): void
     {
         Mail::fake();
 
@@ -269,11 +366,25 @@ class BookingNotificationTest extends TestCase
                 ->where('type', 'booking.cancelled_by_client')
                 ->count()
         );
+        $this->assertSame(
+            1,
+            Notification::query()
+                ->where('recipient_id', $client->id)
+                ->where('type', 'booking.cancelled_by_client_confirmation')
+                ->count()
+        );
         $this->assertDatabaseHas('notification_logs', [
             'booking_id' => $booking->id,
             'user_id' => $professionalUser->id,
             'channel' => 'database',
             'type' => 'booking.cancelled_by_client',
+            'status' => 'sent',
+        ]);
+        $this->assertDatabaseHas('notification_logs', [
+            'booking_id' => $booking->id,
+            'user_id' => $client->id,
+            'channel' => 'database',
+            'type' => 'booking.cancelled_by_client_confirmation',
             'status' => 'sent',
         ]);
     }
@@ -400,6 +511,13 @@ class BookingNotificationTest extends TestCase
             Notification::query()
                 ->where('recipient_id', $professionalUser->id)
                 ->where('type', 'booking.cancelled_by_client')
+                ->count()
+        );
+        $this->assertSame(
+            1,
+            Notification::query()
+                ->where('recipient_id', $client->id)
+                ->where('type', 'booking.cancelled_by_client_confirmation')
                 ->count()
         );
     }

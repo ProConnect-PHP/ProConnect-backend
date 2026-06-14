@@ -6,6 +6,7 @@ use App\Actions\Notification\QueueBookingEmailNotificationAction;
 use App\Actions\Notification\SendBookingInAppNotificationOnceAction;
 use App\Events\Booking\BookingCancelled;
 use App\Mail\Booking\BookingCancelledMail;
+use App\Models\Booking\Booking;
 use App\Models\User\User;
 use App\Support\Booking\BookingNotificationRecipients;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -23,7 +24,7 @@ class SendBookingCancelledNotification implements ShouldQueue
             'client',
         ]);
 
-        $this->sendInAppNotification($event);
+        $this->sendInAppNotifications($event);
 
         BookingNotificationRecipients::counterpartUsers($booking, $event->actor)
             ->each(function ($recipient) use ($booking, $event): void {
@@ -39,7 +40,7 @@ class SendBookingCancelledNotification implements ShouldQueue
             });
     }
 
-    private function sendInAppNotification(BookingCancelled $event): void
+    private function sendInAppNotifications(BookingCancelled $event): void
     {
         $booking = $event->booking;
         $actor = $event->actor;
@@ -54,43 +55,100 @@ class SendBookingCancelledNotification implements ShouldQueue
             return;
         }
 
+        $startsAt = $booking->starts_at->format('d/m/Y \a \l\a\s H:i');
+
         if ($client && $actor->is($client)) {
-            $recipient = $professional;
             $actorRole = 'client';
-            $type = 'booking.cancelled_by_client';
-            $title = 'Reserva cancelada por el cliente';
-            $message = sprintf(
-                '%s canceló la reserva de %s programada para el %s.',
-                $client->name,
-                $booking->service->name,
-                $booking->starts_at->format('d/m/Y \a \l\a\s H:i')
+            $metadata = $this->metadata($event, $actorRole, $client, $professional);
+
+            $this->sendNotification(
+                booking: $booking,
+                recipient: $professional,
+                type: 'booking.cancelled_by_client',
+                title: 'Reserva cancelada por el cliente',
+                message: sprintf(
+                    '%s canceló la reserva de %s programada para el %s.',
+                    $client->name,
+                    $booking->service->name,
+                    $startsAt
+                ),
+                actionRoute: "/professional/bookings/{$booking->id}",
+                metadata: $metadata
             );
-            $actionRoute = "/professional/bookings/{$booking->id}";
-        } elseif ($professional && $actor->is($professional)) {
-            $recipient = $client;
-            $actorRole = 'professional';
-            $type = 'booking.cancelled_by_professional';
-            $title = 'Reserva cancelada por el profesional';
-            $message = sprintf(
-                '%s canceló tu reserva de %s programada para el %s.',
-                $professional->name,
-                $booking->service->name,
-                $booking->starts_at->format('d/m/Y \a \l\a\s H:i')
+
+            $this->sendNotification(
+                booking: $booking,
+                recipient: $client,
+                type: 'booking.cancelled_by_client_confirmation',
+                title: 'Has cancelado tu reserva',
+                message: sprintf(
+                    'Has cancelado tu reserva para %s programada para el %s.',
+                    $booking->service->name,
+                    $startsAt
+                ),
+                actionRoute: "/my-bookings/{$booking->id}",
+                metadata: $metadata
             );
-            $actionRoute = "/bookings/{$booking->id}";
-        } else {
-            Log::warning('Booking cancellation actor is not a booking participant.', [
-                'booking_id' => $booking->id,
-                'actor_id' => $actor->id,
-            ]);
 
             return;
         }
 
-        if (! $recipient instanceof User || $recipient->is($actor)) {
-            Log::warning('Booking cancellation notification has no valid counterpart.', [
+        if ($professional && $actor->is($professional)) {
+            $actorRole = 'professional';
+            $metadata = $this->metadata($event, $actorRole, $client, $professional);
+
+            $this->sendNotification(
+                booking: $booking,
+                recipient: $client,
+                type: 'booking.cancelled_by_professional',
+                title: 'Reserva cancelada por el profesional',
+                message: sprintf(
+                    '%s canceló tu reserva para %s programada para el %s.',
+                    $professional->name,
+                    $booking->service->name,
+                    $startsAt
+                ),
+                actionRoute: "/my-bookings/{$booking->id}",
+                metadata: $metadata
+            );
+
+            $this->sendNotification(
+                booking: $booking,
+                recipient: $professional,
+                type: 'booking.cancelled_by_professional_confirmation',
+                title: 'Has cancelado una reserva',
+                message: sprintf(
+                    'Has cancelado la reserva de %s para %s programada para el %s.',
+                    $client?->name ?? 'el cliente',
+                    $booking->service->name,
+                    $startsAt
+                ),
+                actionRoute: "/professional/bookings/{$booking->id}",
+                metadata: $metadata
+            );
+
+            return;
+        }
+
+        Log::warning('Booking cancellation actor is not a booking participant.', [
+            'booking_id' => $booking->id,
+            'actor_id' => $actor->id,
+        ]);
+    }
+
+    private function sendNotification(
+        Booking $booking,
+        ?User $recipient,
+        string $type,
+        string $title,
+        string $message,
+        string $actionRoute,
+        array $metadata
+    ): void {
+        if (! $recipient) {
+            Log::warning('Booking cancellation notification has no recipient.', [
                 'booking_id' => $booking->id,
-                'actor_id' => $actor->id,
+                'type' => $type,
             ]);
 
             return;
@@ -103,22 +161,33 @@ class SendBookingCancelledNotification implements ShouldQueue
             title: $title,
             message: $message,
             actionRoute: $actionRoute,
-            metadata: [
-                'booking_id' => $booking->id,
-                'service_id' => $booking->service_id,
-                'service_name' => $booking->service->name,
-                'client_id' => $client?->id,
-                'client_name' => $client?->name,
-                'professional_id' => $booking->professional_id,
-                'professional_name' => $professional?->name,
-                'cancelled_by' => $actor->id,
-                'cancelled_by_role' => $actorRole,
-                'cancelled_by_name' => $actor->name,
-                'cancellation_reason' => $booking->cancellation_reason,
-                'starts_at' => $booking->starts_at?->toISOString(),
-                'ends_at' => $booking->ends_at?->toISOString(),
-                'cancelled_at' => $booking->cancelled_at?->toISOString(),
-            ]
+            metadata: $metadata
         );
+    }
+
+    private function metadata(
+        BookingCancelled $event,
+        string $actorRole,
+        ?User $client,
+        ?User $professional
+    ): array {
+        $booking = $event->booking;
+
+        return [
+            'booking_id' => $booking->id,
+            'service_id' => $booking->service_id,
+            'service_name' => $booking->service->name,
+            'client_id' => $client?->id,
+            'client_name' => $client?->name,
+            'professional_id' => $booking->professional_id,
+            'professional_name' => $professional?->name,
+            'cancelled_by' => $event->actor?->id,
+            'cancelled_by_role' => $actorRole,
+            'cancelled_by_name' => $event->actor?->name,
+            'cancellation_reason' => $booking->cancellation_reason,
+            'starts_at' => $booking->starts_at?->toISOString(),
+            'ends_at' => $booking->ends_at?->toISOString(),
+            'cancelled_at' => $booking->cancelled_at?->toISOString(),
+        ];
     }
 }

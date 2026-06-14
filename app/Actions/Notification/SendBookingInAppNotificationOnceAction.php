@@ -59,6 +59,13 @@ class SendBookingInAppNotificationOnceAction
                 ->where('recipient_id', $recipient->id)
                 ->where('type', $type)
                 ->where('metadata->booking_id', $booking->id)
+                ->when(
+                    array_key_exists('cancelled_at', $metadata),
+                    fn ($query) => $query->where(
+                        'metadata->cancelled_at',
+                        $metadata['cancelled_at']
+                    )
+                )
                 ->first();
 
             if ($existingNotification) {

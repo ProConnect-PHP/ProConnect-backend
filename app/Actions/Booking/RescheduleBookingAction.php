@@ -13,6 +13,7 @@ use App\Models\Service\Service;
 use App\Models\User\User;
 use App\Services\Booking\BookingReschedulingPolicyChecker;
 use App\Services\Notification\NotificationService;
+use App\Support\Booking\BookingNotificationContext;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
@@ -97,7 +98,8 @@ class RescheduleBookingAction
                     type: 'booking.rescheduled',
                     title: 'Reserva reprogramada',
                     message: "Tu reserva para el servicio '{$booking->service->name}' ha sido reprogramada para el {$booking->starts_at->format('d/m/Y \a las H:i')}.",
-                    actionRoute: "/bookings/{$booking->id}"
+                    actionRoute: BookingNotificationContext::actionRoute($booking, $recipient),
+                    metadata: BookingNotificationContext::metadata($booking)
                 );
 
             });
