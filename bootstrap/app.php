@@ -1,6 +1,7 @@
 <?php
 
 use App\Exceptions\ApiExceptionHandler;
+use App\Http\Middleware\EnsureJwtWasIssuedAfterPasswordChange;
 use App\Http\Middleware\EnsureUserCanActAsClient;
 use App\Http\Middleware\EnsureUserHasRole;
 use App\Http\Middleware\ForceJsonResponse;
@@ -23,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'client-capable' => EnsureUserCanActAsClient::class,
             'role' => EnsureUserHasRole::class,
+            'jwt.password.fresh' => EnsureJwtWasIssuedAfterPasswordChange::class,
         ]);
 
         $middleware->api(prepend: [

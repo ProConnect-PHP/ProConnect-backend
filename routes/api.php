@@ -11,11 +11,13 @@ use App\Http\Controllers\Booking\BookingController;
 use App\Http\Controllers\Booking\ProfessionalBookingController;
 use App\Http\Controllers\Booking\ProfessionalBookingPolicyController;
 use App\Http\Controllers\Booking\ProfessionalReminderRuleController;
+use App\Http\Controllers\Notification\NotificationController;
 use App\Http\Controllers\Package\MyClientPackageController;
 use App\Http\Controllers\Package\PackagePurchaseController;
 use App\Http\Controllers\Package\ProfessionalPackageProductController;
 use App\Http\Controllers\Package\ProfessionalSoldPackageController;
 use App\Http\Controllers\Package\PublicPackageProductController;
+use App\Http\Controllers\Password\ResetPasswordController;
 use App\Http\Controllers\Payment\BookingPaymentIntentController;
 use App\Http\Controllers\Payment\ClientPaymentController;
 use App\Http\Controllers\Payment\PaymentCheckoutController;
@@ -36,11 +38,9 @@ use App\Http\Controllers\Video\BookingVideoSessionController;
 use App\Http\Controllers\Video\MyVideoSessionController;
 use App\Http\Controllers\Video\ProfessionalVideoSessionController;
 use App\Http\Controllers\Video\VideoSessionJoinController;
-use App\Http\Controllers\Notification\NotificationController;
-use App\Http\Controllers\Password\ResetPasswordController;
 use App\Modules\VideoSession\Infrastructure\Http\Controllers\JoinVideoSessionController as LiveKitJoinVideoSessionController;
-use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function (): void {
     Route::post('/payments/webhooks/mercadopago', [PaymentWebhookController::class, 'mercadoPago'])
@@ -85,34 +85,33 @@ Route::prefix('v1')->group(function (): void {
     |
     | */
 
-       Route::prefix('auth')->group(function (): void {
+    Route::prefix('auth')->group(function (): void {
 
-    Route::post('/register', [AuthController::class, 'register'])
-        ->middleware('throttle:auth-register');
+        Route::post('/register', [AuthController::class, 'register'])
+            ->middleware('throttle:auth-register');
 
-    Route::post('/login', [AuthController::class, 'login'])
-        ->middleware('throttle:auth-login');
+        Route::post('/login', [AuthController::class, 'login'])
+            ->middleware('throttle:auth-login');
 
-    Route::post('/refresh', [AuthController::class, 'refresh'])
-        ->middleware('throttle:auth-refresh');
+        Route::post('/refresh', [AuthController::class, 'refresh'])
+            ->middleware('throttle:auth-refresh');
 
-    Route::prefix('oauth')->group(function (): void {
-        Route::get('{provider}/redirect', [OAuthController::class, 'redirect']);
-        Route::get('{provider}/callback', [OAuthController::class, 'callback']);
-        Route::post('/exchange', [OAuthController::class, 'exchange']);
+        Route::prefix('oauth')->group(function (): void {
+            Route::get('{provider}/redirect', [OAuthController::class, 'redirect']);
+            Route::get('{provider}/callback', [OAuthController::class, 'callback']);
+            Route::post('/exchange', [OAuthController::class, 'exchange']);
+        });
+
+        Route::match(['post', 'put', 'patch'], '/account/password-reset', [ResetPasswordController::class, 'sendResetLink'])
+            ->middleware('throttle:api-public');
+
+        Route::match(['post', 'put', 'patch'], '/password-update', [ResetPasswordController::class, 'updatePassword'])
+            ->middleware('throttle:api-public');
+
+        Route::middleware(['auth:user_jwt', 'jwt.password.fresh', 'throttle:api-authenticated'])->group(function (): void {
+            Route::post('/logout', [AuthController::class, 'logout']);
+        });
     });
-
-
-    Route::match(['post', 'put', 'patch'], '/account/password-reset', [ResetPasswordController::class, 'sendResetLink'])
-        ->middleware('throttle:api-public');
-
-    Route::match(['post', 'put', 'patch'], '/password-update', [ResetPasswordController::class, 'updatePassword'])
-        ->middleware('throttle:api-public');
-
-    Route::middleware(['auth:user_jwt', 'throttle:api-authenticated'])->group(function (): void {
-        Route::post('/logout', [AuthController::class, 'logout']);
-    });
-});
 
     /*
     |--------------------------------------------------------------------------
@@ -123,7 +122,7 @@ Route::prefix('v1')->group(function (): void {
     |
     | */
 
-    Route::middleware('auth:user_jwt')->group(function (): void {
+    Route::middleware('auth:user_jwt', 'jwt.password.fresh')->group(function (): void {
         /*
         |--------------------------------------------------------------------------
         | Current User
@@ -399,6 +398,11 @@ Route::prefix('v1')->group(function (): void {
     });
 });
 
-Route::get('/password-reset/{token}', function (Request $request) {
-    return redirect()->away(config('app.frontend_url', 'http://localhost:4200') . '/reset-password?token=' . $request->token . '&email=' . $request->email);
+Route::get('/password-reset/{token}', function (Request $request, string $token) {
+    $frontendUrl = rtrim(config('proconnect.frontend_url', config('app.url')), '/');
+
+    return redirect()->away($frontendUrl . '/reset-password?' . http_build_query([
+        'token' => $token,
+        'email' => $request->query('email'),
+    ]));
 })->name('password.reset');
