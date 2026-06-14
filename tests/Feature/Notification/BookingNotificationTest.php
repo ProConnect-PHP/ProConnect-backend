@@ -257,10 +257,13 @@ class BookingNotificationTest extends TestCase
         Event::fake([NotificationCreated::class]);
 
         [$professionalUser, $profile] = $this->createProfessional();
+
         $client = User::factory()->create();
+
         $service = $this->createBookableService([
             'professional_id' => $profile->id,
         ]);
+
         $booking = $this->createBooking($service, $client);
 
         $this
@@ -269,6 +272,8 @@ class BookingNotificationTest extends TestCase
                 'reason' => 'Indisponibilidad profesional',
             ])
             ->assertOk();
+
+        $this->runBookingCancelledNotificationListener($booking, $professionalUser);
 
         $notification = Notification::query()
             ->where('recipient_id', $client->id)
@@ -279,17 +284,29 @@ class BookingNotificationTest extends TestCase
             'Reserva cancelada por el profesional',
             $notification->title
         );
+
         $this->assertStringContainsString(
             'canceló tu reserva',
             $notification->message
         );
+
         $this->assertSame('professional', $notification->metadata['cancelled_by_role']);
-        $this->assertSame($professionalUser->id, $notification->metadata['cancelled_by']);
+
+        $this->assertSame(
+            $professionalUser->id,
+            $notification->metadata['cancelled_by']
+        );
+
         $this->assertSame(
             'Indisponibilidad profesional',
             $notification->metadata['cancellation_reason']
         );
-        $this->assertSame("/my-bookings/{$booking->id}", $notification->action_route);
+
+        $this->assertSame(
+            "/my-bookings/{$booking->id}",
+            $notification->action_route
+        );
+
         Event::assertDispatchedTimes(NotificationCreated::class, 2);
     }
 
