@@ -32,23 +32,15 @@ class User extends Authenticatable implements JWTSubject
 {
     use HasFactory, HasUuids, Notifiable, SoftDeletes;
 
-    // 2. REGISTRAMOS EL CAST COMO DATETIME PARA QUE CARBON HAGA LA MATEMÁTICA DE FECHAS
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
+            'password' => 'hashed',
             'role' => UserRole::class,
             'password_changed_at' => 'datetime',
         ];
     }
-
-    protected function password(): Attribute
-    {
-        return Attribute::make(
-            set: fn ($value) => bcrypt($value),
-        );
-    }
-
     public function professionalProfile(): HasOne
     {
         return $this->hasOne(ProfessionalProfile::class);
