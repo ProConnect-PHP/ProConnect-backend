@@ -30,7 +30,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         gd \
         pcntl \
         sockets \
-        opcache \
     && pecl install redis mongodb imagick \
     && docker-php-ext-enable redis mongodb imagick \
     && apt-get clean \
