@@ -3,145 +3,198 @@
 namespace App\Http\Controllers\Password;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\User\User;
 use Carbon\Carbon;
+use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password as PasswordFacade;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rules\Password as PasswordRule;
+use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 
 class ResetPasswordController extends Controller
 {
+    private const PASSWORD_CHANGE_COOLDOWN_SECONDS = 60;
+
     /**
-     * FLUJO INTERNO/EXTERNO - PASO 1: Enviar el enlace de recuperación al correo
-     * Ruta: /api/v1/auth/account/password-reset
+     * Enviar enlace de recuperación.
+     *
+     * Ruta sugerida:
+     * POST /api/v1/auth/account/password-reset
+     *
+     * Sirve para:
+     * - Flujo público: usuario no autenticado envía email.
+     * - Flujo interno: frontend puede enviar el email del usuario autenticado.
      */
-    public function sendResetLink(Request $request)
+    public function sendResetLink(Request $request): JsonResponse
     {
-        // 1. Si el usuario está logueado (Ajustes de cuenta), usamos su email. Si no, lo tomamos del request.
-        $email = $request->user() ? $request->user()->email : $request->input('email');
+        $validated = $request->validate([
+            'email' => ['nullable', 'email', 'max:255'],
+        ]);
+
+        $email = $request->user()?->email ?? $validated['email'] ?? null;
 
         if (!$email) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'El correo electrónico es obligatorio.'
+                'message' => 'El correo electrónico es obligatorio.',
             ], 422);
         }
 
-        // 2. Buscar al usuario
-        $user = User::where('email', $email)->first();
+        try {
+            $status = PasswordFacade::broker()->sendResetLink([
+                'email' => $email,
+            ]);
+        } catch (TransportExceptionInterface $exception) {
+            Log::error('Password reset email transport failed.', [
+                'email' => $email,
+                'exception' => $exception::class,
+                'message' => $exception->getMessage(),
+            ]);
 
-        if (!$user) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'No se encontró ningún usuario con este correo electrónico.'
-            ], 442);
+                'message' => 'No pudimos enviar el correo en este momento. Intentá nuevamente más tarde.',
+            ], 503);
         }
 
-        if ($user->password_changed_at) {
-            $fechaCambio = Carbon::parse($user->password_changed_at);
-
-            // PRUEBAS: 1 MINUTO (Cambiar a subDay() para producción de 24 horas)
-            if ($fechaCambio->greaterThanOrEqualTo(Carbon::now()->subMinute())) {
-                $segundosRestantes = Carbon::now()->diffInSeconds($fechaCambio->addMinute(), false);
-                $segundosRestantes = $segundosRestantes > 0 ? $segundosRestantes : 1;
-
-                return response()->json([
-                    'status' => 'error',
-                    'message' => "Por razones de seguridad, debes esperar para solicitar otro cambio. Inténtalo de nuevo en {$segundosRestantes} segundos."
-                ], 400); // Retorna 400 Bad Request para que Angular muestre el cartel rojo
-            }
-        }
-        // =========================================================================
-
-        // 3. Enviamos el link usando el broker nativo de Laravel (creará el token y mandará el mail a Mailpit)
-        $status = PasswordFacade::broker()->sendResetLink(['email' => $user->email]);
-
-        // CASO A: El correo se despachó con éxito
         if ($status === PasswordFacade::RESET_LINK_SENT) {
             return response()->json([
                 'status' => 'success',
-                'message' => '¡Enlace de restablecimiento enviado! Revisá tu correo electrónico.'
-            ], 200);
+                'message' => 'Si la cuenta existe, te enviaremos un enlace seguro para restablecer la contraseña.',
+            ]);
         }
 
-        // CASO B: El broker interno bloqueó el envío por límite de tiempo (Throttle de Laravel)
         if ($status === PasswordFacade::RESET_THROTTLED) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Por razones de seguridad, debes esperar un momento antes de solicitar otro enlace.'
-            ], 400); // Retorna 400 Bad Request para Angular
+                'message' => 'Por seguridad, esperá unos minutos antes de solicitar otro enlace.',
+            ], 429);
         }
 
-        // CASO C: Error real e interno de infraestructura (ej. SMTP caído)
+        if ($status === PasswordFacade::INVALID_USER) {
+            /*
+             * Importante:
+             * No devolvemos 404 porque eso permite enumerar usuarios registrados.
+             * Para un flujo público de password reset, la respuesta debe ser genérica.
+             */
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Si la cuenta existe, te enviaremos un enlace seguro para restablecer la contraseña.',
+            ]);
+        }
+
+        Log::warning('Unexpected password reset link status.', [
+            'email' => $email,
+            'status' => $status,
+        ]);
+
         return response()->json([
             'status' => 'error',
-            'message' => 'No se pudo enviar el correo de restablecimiento en este momento.'
+            'message' => 'No se pudo procesar la solicitud de restablecimiento.',
         ], 500);
     }
 
     /**
-     * PASO 2: Procesar el formulario de restablecimiento que viene desde el mail
-     * Ruta: /api/v1/auth/password-update
+     * Procesar cambio de contraseña.
+     *
+     * Ruta sugerida:
+     * POST /api/v1/auth/password-update
      */
-    public function updatePassword(Request $request)
+    public function updatePassword(Request $request): JsonResponse
     {
-        $request->validate([
-            'token' => 'required',
-            'email' => 'required|email',
-            'password' => 'required|min:6',
-            'password_confirmation' => 'required|same:password',
+        $validated = $request->validate([
+            'token' => ['required', 'string'],
+            'email' => ['required', 'email', 'max:255'],
+            'password' => [
+                'required',
+                'confirmed',
+                PasswordRule::min(8),
+                'max:128',
+            ],
         ]);
 
-        $user = User::where('email', $request->email)->first();
+        $user = User::query()
+            ->where('email', $validated['email'])
+            ->first();
 
-        if (!$user) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'No se encontró ningún usuario con este correo electrónico.'
-            ], 442);
-        }
+        if ($user) {
+            $secondsRemaining = $this->secondsUntilPasswordChangeAllowed($user);
 
-        // =========================================================================
-        // DOBLE CONTROL DE TIEMPO (POR SEGURIDAD EN EL FORMULARIO)
-        // =========================================================================
-        if ($user->password_changed_at) {
-            $fechaCambio = Carbon::parse($user->password_changed_at);
-
-            if ($fechaCambio->greaterThanOrEqualTo(Carbon::now()->subMinute())) {
-                $segundosRestantes = Carbon::now()->diffInSeconds($fechaCambio->addMinute(), false);
-                $segundosRestantes = $segundosRestantes > 0 ? $segundosRestantes : 1;
-
+            if ($secondsRemaining > 0) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => "Debes esperar 1 minuto entre cambios de contraseña. Inténtalo de nuevo en {$segundosRestantes} segundos."
-                ], 400);
+                    'message' => "Por seguridad, debés esperar {$secondsRemaining} segundos antes de cambiar nuevamente la contraseña.",
+                ], 429);
             }
         }
-        // =========================================================================
 
-        // Validar el token en la tabla password_reset_tokens
-        $tokenRecord = DB::table('password_reset_tokens')->where('email', $request->email)->first();
+        $status = PasswordFacade::broker()->reset(
+            [
+                'email' => $validated['email'],
+                'password' => $validated['password'],
+                'password_confirmation' => $request->input('password_confirmation'),
+                'token' => $validated['token'],
+            ],
+            function (User $user, string $password): void {
+                $user->forceFill([
+                    'password' => Hash::make($password),
+                    'password_changed_at' => now(),
+                    'remember_token' => Str::random(60),
+                ])->save();
 
-        if (!$tokenRecord || !Hash::check($request->token, $tokenRecord->token)) {
+                event(new PasswordReset($user));
+            },
+        );
+
+        if ($status === PasswordFacade::PASSWORD_RESET) {
             return response()->json([
-                'status' => 'error',
-                'message' => 'La solicitud de restablecimiento no es válida o ya expiró.'
-            ], 400);
+                'status' => 'success',
+                'message' => 'Tu contraseña fue actualizada correctamente. Ya podés iniciar sesión.',
+            ]);
         }
 
-        // Actualizamos la contraseña y registramos el timestamp de cambio en PostgreSQL
-        $user->update([
-            'password' => $request->password,
-            'password_changed_at' => Carbon::now()->toDateTimeString()
+        if ($status === PasswordFacade::INVALID_TOKEN) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'El enlace de restablecimiento no es válido o ya expiró.',
+            ], 422);
+        }
+
+        if ($status === PasswordFacade::INVALID_USER) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'El enlace de restablecimiento no es válido o ya expiró.',
+            ], 422);
+        }
+
+        Log::warning('Unexpected password reset status.', [
+            'email' => $validated['email'],
+            'status' => $status,
         ]);
 
-        // Eliminar token usado
-        DB::table('password_reset_tokens')->where('email', $request->email)->delete();
-
         return response()->json([
-            'status' => 'success',
-            'message' => '¡Tu contraseña ha sido actualizada con éxito! Ya podés iniciar sesión.'
-        ], 200);
+            'status' => 'error',
+            'message' => 'No pudimos actualizar la contraseña en este momento.',
+        ], 500);
+    }
+
+    private function secondsUntilPasswordChangeAllowed(User $user): int
+    {
+        if (!$user->password_changed_at) {
+            return 0;
+        }
+
+        $changedAt = Carbon::parse($user->password_changed_at);
+        $availableAt = $changedAt->copy()->addSeconds(self::PASSWORD_CHANGE_COOLDOWN_SECONDS);
+
+        if ($availableAt->isPast()) {
+            return 0;
+        }
+
+        return max(1, now()->diffInSeconds($availableAt, false));
     }
 }
