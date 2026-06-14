@@ -4,6 +4,8 @@ services:
             context: .
             dockerfile: docker/php/Dockerfile.local-perf
         image: proconnect-laravel-local-perf:latest
+        volume:
+            - './.env:/var/www/html/.env:ro'
         env_file:
             - .env
         entrypoint:
@@ -63,6 +65,8 @@ services:
             context: .
             dockerfile: docker/php/Dockerfile.local-perf
         image: proconnect-laravel-local-perf:latest
+        volume:
+            - './.env:/var/www/html/.env:ro'
         env_file:
             - .env
         entrypoint:
@@ -148,7 +152,7 @@ services:
                 - CMD
                 - redis-cli
                 - ping
-            interval: 5s    
+            interval: 5s
             timeout: 5s
             retries: 10
 
