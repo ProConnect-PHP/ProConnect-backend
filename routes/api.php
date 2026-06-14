@@ -108,7 +108,7 @@ Route::prefix('v1')->group(function (): void {
         Route::match(['post', 'put', 'patch'], '/password-update', [ResetPasswordController::class, 'updatePassword'])
             ->middleware('throttle:api-public');
 
-        Route::middleware(['auth:user_jwt', 'throttle:api-authenticated'])->group(function (): void {
+        Route::middleware(['auth:user_jwt', 'jwt.password.fresh', 'throttle:api-authenticated'])->group(function (): void {
             Route::post('/logout', [AuthController::class, 'logout']);
         });
     });
@@ -122,7 +122,7 @@ Route::prefix('v1')->group(function (): void {
     |
     | */
 
-    Route::middleware('auth:user_jwt')->group(function (): void {
+    Route::middleware('auth:user_jwt', 'jwt.password.fresh')->group(function (): void {
         /*
         |--------------------------------------------------------------------------
         | Current User
@@ -398,6 +398,11 @@ Route::prefix('v1')->group(function (): void {
     });
 });
 
-Route::get('/password-reset/{token}', function (Request $request) {
-    return redirect()->away(config('app.frontend_url', 'http://localhost:4200').'/reset-password?token='.$request->token.'&email='.$request->email);
+Route::get('/password-reset/{token}', function (Request $request, string $token) {
+    $frontendUrl = rtrim(config('proconnect.frontend_url', config('app.url')), '/');
+
+    return redirect()->away($frontendUrl . '/reset-password?' . http_build_query([
+        'token' => $token,
+        'email' => $request->query('email'),
+    ]));
 })->name('password.reset');

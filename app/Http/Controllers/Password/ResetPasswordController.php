@@ -8,7 +8,7 @@ use Carbon\Carbon;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password as PasswordFacade;
 use Illuminate\Support\Str;
@@ -37,7 +37,7 @@ class ResetPasswordController extends Controller
 
         $email = $request->user()?->email ?? $validated['email'] ?? null;
 
-        if (!$email) {
+        if (! $email) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'El correo electrónico es obligatorio.',
@@ -140,13 +140,19 @@ class ResetPasswordController extends Controller
                 'token' => $validated['token'],
             ],
             function (User $user, string $password): void {
-                $user->forceFill([
-                    'password' => $password,
-                    'password_changed_at' => now(),
-                    'remember_token' => Str::random(60),
-                ])->save();
+                DB::transaction(function () use ($user, $password): void {
+                    $user->forceFill([
+                        'password' => $password,
+                        'password_changed_at' => now(),
+                        'remember_token' => Str::random(60),
+                    ])->save();
 
-                event(new PasswordReset($user));
+                    DB::table('refresh_tokens')
+                        ->where('user_id', $user->getKey())
+                        ->delete();
+
+                    event(new PasswordReset($user));
+                });
             },
         );
 
@@ -184,7 +190,7 @@ class ResetPasswordController extends Controller
 
     private function secondsUntilPasswordChangeAllowed(User $user): int
     {
-        if (!$user->password_changed_at) {
+        if (! $user->password_changed_at) {
             return 0;
         }
 
