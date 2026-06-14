@@ -10,7 +10,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 
 class SendBookingRescheduledNotification implements ShouldQueue
 {
-    public bool $afterCommit = true;
+
 
     public function handle(BookingRescheduled $event): void
     {

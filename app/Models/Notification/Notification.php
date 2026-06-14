@@ -16,10 +16,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'title',
     'message',
     'action_route',
-    'read_at'
+    'metadata',
+    'read_at',
+    'archived_at',
 ])]
 #[Hidden([
-    'updated_at'
+    'updated_at',
 ])]
 #[Table('notifications')]
 class Notification extends Model
@@ -29,7 +31,10 @@ class Notification extends Model
     protected function casts(): array
     {
         return [
+            'metadata' => 'array',
             'read_at' => 'datetime',
+            'archived_at' => 'datetime',
+            'created_at' => 'datetime',
         ];
     }
 
@@ -41,5 +46,43 @@ class Notification extends Model
     public function isRead(): bool
     {
         return $this->read_at !== null;
+    }
+
+    public function isArchived(): bool
+    {
+        return $this->archived_at !== null;
+    }
+
+    public function markAsRead(): void
+    {
+        if ($this->read_at !== null) {
+            return;
+        }
+
+        $this->forceFill([
+            'read_at' => now(),
+        ])->save();
+    }
+
+    public function archive(): void
+    {
+        if ($this->archived_at !== null) {
+            return;
+        }
+
+        $this->forceFill([
+            'archived_at' => now(),
+        ])->save();
+    }
+
+    public function unarchive(): void
+    {
+        if ($this->archived_at === null) {
+            return;
+        }
+
+        $this->forceFill([
+            'archived_at' => null,
+        ])->save();
     }
 }
