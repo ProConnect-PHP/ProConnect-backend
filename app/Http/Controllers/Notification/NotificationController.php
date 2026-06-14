@@ -2,61 +2,94 @@
 
 namespace App\Http\Controllers\Notification;
 
+use App\Actions\Notifications\ArchiveNotificationAction;
+use App\Actions\Notifications\DeleteNotificationAction;
+use App\Actions\Notifications\GetUnreadNotificationCountAction;
+use App\Actions\Notifications\ListUserNotificationsAction;
+use App\Actions\Notifications\MarkAllNotificationsAsReadAction;
+use App\Actions\Notifications\MarkNotificationAsReadAction;
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
+use App\Http\Resources\Notification\NotificationResource;
 use App\Models\Notification\Notification;
+use App\Models\User\User;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class NotificationController extends Controller
 {
-    public function index(Request $request)
-    {
-        return Notification::where('recipient_id', $request->user()->id)
-            ->latest()
-            ->paginate(20);
+    public function index(
+        Request $request,
+        ListUserNotificationsAction $action
+    ): AnonymousResourceCollection {
+        $request->validate([
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $notifications = $action->execute(
+            $this->authenticatedUser($request),
+            $request->integer('per_page', 20),
+            $request->boolean('include_archived')
+        );
+
+        return NotificationResource::collection($notifications);
     }
 
-    public function unreadCount(Request $request)
-    {
+    public function unreadCount(
+        Request $request,
+        GetUnreadNotificationCountAction $action
+    ): JsonResponse {
         return response()->json([
-            'count' => Notification::where('recipient_id', $request->user()->id)
-                ->whereNull('read_at')
-                ->count()
+            'count' => $action->execute($this->authenticatedUser($request)),
         ]);
     }
 
-    public function markAsRead(string $id, Request $request)
-    {
-        $updated = Notification::where('id', $id)
-            ->where('recipient_id', $request->user()->id)
-            ->whereNull('read_at')
-            ->update(['read_at' => now()]);
+    public function markAsRead(
+        Notification $notification,
+        MarkNotificationAsReadAction $action
+    ): NotificationResource {
+        $this->authorize('update', $notification);
 
-        if (!$updated) {
-            return response()->json(['message' => 'Notification not found'], 404);
-        }
-
-        return response()->json(['message' => 'Notification marked as read']);
+        return new NotificationResource($action->execute($notification));
     }
 
-    public function markAllAsRead(Request $request)
-    {
-        Notification::where('recipient_id', $request->user()->id)
-            ->whereNull('read_at')
-            ->update(['read_at' => now()]);
+    public function markAllAsRead(
+        Request $request,
+        MarkAllNotificationsAsReadAction $action
+    ): JsonResponse {
+        $updated = $action->execute($this->authenticatedUser($request));
 
-        return response()->json(['message' => 'All notifications marked as read']);
+        return response()->json([
+            'message' => 'All notifications marked as read',
+            'updated' => $updated,
+        ]);
     }
 
-    public function destroy(string $id, Request $request)
-    {
-        $deleted = Notification::where('id', $id)
-            ->where('recipient_id', $request->user()->id)
-            ->delete();
+    public function archive(
+        Notification $notification,
+        ArchiveNotificationAction $action
+    ): NotificationResource {
+        $this->authorize('archive', $notification);
 
-        if (!$deleted) {
-            return response()->json(['message' => 'Notification not found'], 404);
-        }
+        return new NotificationResource($action->execute($notification));
+    }
+
+    public function destroy(
+        Notification $notification,
+        DeleteNotificationAction $action
+    ): JsonResponse {
+        $this->authorize('delete', $notification);
+
+        $action->execute($notification);
 
         return response()->json(['message' => 'Notification deleted']);
+    }
+
+    private function authenticatedUser(Request $request): User
+    {
+        /** @var User $user */
+        $user = $request->user('user_jwt');
+
+        return $user;
     }
 }

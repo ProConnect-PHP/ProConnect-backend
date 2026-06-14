@@ -37,8 +37,14 @@ class NotificationCreated implements ShouldBroadcast
             'title' => $this->notification->title,
             'message' => $this->notification->message,
             'action_route' => $this->notification->action_route,
-            'read_at' => $this->notification->read_at,
-            'created_at' => $this->notification->created_at,
+            'metadata' => $this->notification->metadata ?? [],
+            'is_read' => $this->notification->isRead(),
+            'is_archived' => $this->notification->isArchived(),
+            'read_at' => $this->notification->read_at?->toISOString(),
+            'archived_at' => $this->notification->archived_at?->toISOString(),
+            'created_at' => $this->notification->created_at?->toISOString(),
+            'created_date' => $this->notification->created_at?->format('Y-m-d'),
+            'created_time' => $this->notification->created_at?->format('H:i'),
         ];
     }
 }

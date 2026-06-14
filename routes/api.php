@@ -389,8 +389,10 @@ Route::prefix('v1')->group(function (): void {
 
                 Route::get('/unread-count', [NotificationController::class, 'unreadCount']);
 
+                Route::patch('/read-all', [NotificationController::class, 'markAllAsRead']);
                 Route::post('/mark-all-read', [NotificationController::class, 'markAllAsRead']);
-                Route::delete('/delete-all', [NotificationController::class, 'deleteAll']);
+                Route::patch('/{notification}/read', [NotificationController::class, 'markAsRead']);
+                Route::patch('/{notification}/archive', [NotificationController::class, 'archive']);
                 Route::delete('/{notification}', [NotificationController::class, 'destroy']);
             });
     });
