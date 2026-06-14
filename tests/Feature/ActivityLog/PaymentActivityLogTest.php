@@ -27,6 +27,7 @@ class PaymentActivityLogTest extends TestCase
         parent::setUp();
 
         Carbon::setTestNow('2026-06-01 12:00:00');
+        $this->useSynchronousActivityLogQueue();
         $this->clearActivityLogs();
     }
 

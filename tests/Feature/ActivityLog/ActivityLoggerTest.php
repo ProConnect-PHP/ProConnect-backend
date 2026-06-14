@@ -19,7 +19,7 @@ class ActivityLoggerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-
+        $this->useSynchronousActivityLogQueue();
         $this->clearActivityLogs();
     }
 
