@@ -22,6 +22,11 @@ class NotificationPolicy
         return $this->ownsNotification($user, $notification);
     }
 
+    public function unarchive(User $user, Notification $notification): bool
+    {
+        return $this->ownsNotification($user, $notification);
+    }
+
     public function delete(User $user, Notification $notification): bool
     {
         return $this->ownsNotification($user, $notification);

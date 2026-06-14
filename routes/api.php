@@ -393,6 +393,7 @@ Route::prefix('v1')->group(function (): void {
                 Route::post('/mark-all-read', [NotificationController::class, 'markAllAsRead']);
                 Route::patch('/{notification}/read', [NotificationController::class, 'markAsRead']);
                 Route::patch('/{notification}/archive', [NotificationController::class, 'archive']);
+                Route::patch('/{notification}/unarchive', [NotificationController::class, 'unarchive']);
                 Route::delete('/{notification}', [NotificationController::class, 'destroy']);
             });
     });

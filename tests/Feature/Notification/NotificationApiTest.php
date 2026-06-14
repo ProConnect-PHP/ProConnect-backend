@@ -68,7 +68,7 @@ class NotificationApiTest extends TestCase
             ]);
     }
 
-    public function test_archived_notifications_are_excluded_by_default(): void
+    public function test_user_can_list_active_notifications_by_default(): void
     {
         $user = User::factory()->create();
         $visible = $this->createNotification($user);
@@ -82,6 +82,45 @@ class NotificationApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $visible->id);
+
+        $this
+            ->withHeaders($this->authHeaders($user))
+            ->getJson('/api/v1/notifications?status=active')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $visible->id);
+    }
+
+    public function test_user_can_list_archived_notifications(): void
+    {
+        $user = User::factory()->create();
+        $this->createNotification($user);
+        $archived = $this->createNotification($user, [
+            'archived_at' => now(),
+        ]);
+
+        $this
+            ->withHeaders($this->authHeaders($user))
+            ->getJson('/api/v1/notifications?status=archived')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $archived->id)
+            ->assertJsonPath('data.0.is_archived', true);
+    }
+
+    public function test_user_can_list_all_notifications(): void
+    {
+        $user = User::factory()->create();
+        $this->createNotification($user);
+        $this->createNotification($user, [
+            'archived_at' => now(),
+        ]);
+
+        $this
+            ->withHeaders($this->authHeaders($user))
+            ->getJson('/api/v1/notifications?status=all')
+            ->assertOk()
+            ->assertJsonCount(2, 'data');
     }
 
     public function test_user_can_include_archived_notifications(): void
@@ -97,6 +136,22 @@ class NotificationApiTest extends TestCase
             ->getJson('/api/v1/notifications?include_archived=true')
             ->assertOk()
             ->assertJsonCount(2, 'data');
+    }
+
+    public function test_invalid_notification_status_returns_422(): void
+    {
+        $user = User::factory()->create();
+
+        $this
+            ->withHeaders($this->authHeaders($user))
+            ->getJson('/api/v1/notifications?status=deleted')
+            ->assertUnprocessable()
+            ->assertJsonPath('error.type', 'ValidationError')
+            ->assertJsonStructure([
+                'error' => [
+                    'details' => ['status'],
+                ],
+            ]);
     }
 
     public function test_per_page_cannot_exceed_one_hundred(): void
@@ -261,6 +316,60 @@ class NotificationApiTest extends TestCase
             ->assertJsonPath('error.type', 'Forbidden');
 
         $this->assertNull($notification->refresh()->archived_at);
+    }
+
+    public function test_user_can_unarchive_their_notification(): void
+    {
+        $user = User::factory()->create();
+        $notification = $this->createNotification($user, [
+            'archived_at' => now(),
+        ]);
+
+        $this
+            ->withHeaders($this->authHeaders($user))
+            ->patchJson("/api/v1/notifications/{$notification->id}/unarchive")
+            ->assertOk()
+            ->assertJsonPath('data.id', $notification->id)
+            ->assertJsonPath('data.is_archived', false)
+            ->assertJsonPath('data.archived_at', null);
+
+        $this->assertNull($notification->refresh()->archived_at);
+    }
+
+    public function test_unarchive_is_idempotent(): void
+    {
+        $user = User::factory()->create();
+        $notification = $this->createNotification($user);
+
+        $this
+            ->withHeaders($this->authHeaders($user))
+            ->patchJson("/api/v1/notifications/{$notification->id}/unarchive")
+            ->assertOk()
+            ->assertJsonPath('data.id', $notification->id)
+            ->assertJsonPath('data.is_archived', false)
+            ->assertJsonPath('data.archived_at', null);
+
+        $this->assertNull($notification->refresh()->archived_at);
+    }
+
+    public function test_user_cannot_unarchive_another_users_notification(): void
+    {
+        $user = User::factory()->create();
+        $archivedAt = now()->subHour()->startOfSecond();
+        $notification = $this->createNotification(
+            User::factory()->create(),
+            ['archived_at' => $archivedAt]
+        );
+
+        $this
+            ->withHeaders($this->authHeaders($user))
+            ->patchJson("/api/v1/notifications/{$notification->id}/unarchive")
+            ->assertForbidden()
+            ->assertJsonPath('error.type', 'Forbidden');
+
+        $this->assertTrue(
+            $notification->refresh()->archived_at->equalTo($archivedAt)
+        );
     }
 
     public function test_user_can_physically_delete_their_notification(): void

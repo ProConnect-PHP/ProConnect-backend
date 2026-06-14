@@ -8,6 +8,7 @@ use App\Actions\Notifications\GetUnreadNotificationCountAction;
 use App\Actions\Notifications\ListUserNotificationsAction;
 use App\Actions\Notifications\MarkAllNotificationsAsReadAction;
 use App\Actions\Notifications\MarkNotificationAsReadAction;
+use App\Actions\Notifications\UnarchiveNotificationAction;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Notification\NotificationResource;
 use App\Models\Notification\Notification;
@@ -24,12 +25,21 @@ class NotificationController extends Controller
     ): AnonymousResourceCollection {
         $request->validate([
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'status' => [
+                'sometimes',
+                'string',
+                'in:'.implode(',', ListUserNotificationsAction::STATUSES),
+            ],
         ]);
+
+        $status = $request->filled('status')
+            ? (string) $request->input('status')
+            : ($request->boolean('include_archived') ? 'all' : 'active');
 
         $notifications = $action->execute(
             $this->authenticatedUser($request),
             $request->integer('per_page', 20),
-            $request->boolean('include_archived')
+            $status
         );
 
         return NotificationResource::collection($notifications);
@@ -70,6 +80,15 @@ class NotificationController extends Controller
         ArchiveNotificationAction $action
     ): NotificationResource {
         $this->authorize('archive', $notification);
+
+        return new NotificationResource($action->execute($notification));
+    }
+
+    public function unarchive(
+        Notification $notification,
+        UnarchiveNotificationAction $action
+    ): NotificationResource {
+        $this->authorize('unarchive', $notification);
 
         return new NotificationResource($action->execute($notification));
     }

@@ -74,4 +74,15 @@ class Notification extends Model
             'archived_at' => now(),
         ])->save();
     }
+
+    public function unarchive(): void
+    {
+        if ($this->archived_at === null) {
+            return;
+        }
+
+        $this->forceFill([
+            'archived_at' => null,
+        ])->save();
+    }
 }
