@@ -37,6 +37,7 @@ class ActivityLog extends Model
     {
         return [
             'status_code' => 'integer',
+            'metadata' => 'array',
             'created_at' => 'datetime',
         ];
     }

@@ -98,9 +98,10 @@ return [
 
     'waits' => [
         'redis:default' => 60,
-        'redis:bookings' => 60,
+        'redis:bookings' => 30,
         'redis:notifications' => 60,
         'redis:emails' => 60,
+        'redis:activity-logs' => 120,
     ],
 
     /*
@@ -197,43 +198,67 @@ return [
     | in all environments. These supervisors and settings handle all your
     | queued jobs and will be provisioned by Horizon during deployment.
     |
-    */
-
-    'defaults' => [
-        'supervisor-1' => [
+    */ 'defaults' => [
+        'supervisor-critical' => [
             'connection' => 'redis',
-            'queue' => ['default', 'bookings', 'notifications', 'emails'],
+            'queue' => ['bookings', 'notifications', 'emails', 'default'],
             'balance' => 'auto',
             'autoScalingStrategy' => 'time',
-            'maxProcesses' => 5,        // sube un poco en local
+            'maxProcesses' => 5,
             'maxTime' => 0,
             'maxJobs' => 0,
             'memory' => 128,
             'tries' => 3,
-            'timeout' => 120,           // un poco más para desarrollo
+            'timeout' => 120,
             'nice' => 0,
+        ],
+
+        'supervisor-logs' => [
+            'connection' => 'redis',
+            'queue' => ['activity-logs'],
+            'balance' => 'auto',
+            'autoScalingStrategy' => 'time',
+            'maxProcesses' => 2,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 96,
+            'tries' => 3,
+            'timeout' => 30,
+            'nice' => 5,
         ],
     ],
 
     'environments' => [
         'local' => [
-            'supervisor-1' => [
-                'maxProcesses' => 5,
+            'supervisor-critical' => [
+                'maxProcesses' => 3,
                 'balance' => 'auto',
                 'tries' => 2,
                 'timeout' => 90,
             ],
+
+            'supervisor-logs' => [
+                'maxProcesses' => 1,
+                'balance' => 'simple',
+                'tries' => 2,
+                'timeout' => 30,
+            ],
         ],
 
         'production' => [
-            'supervisor-1' => [
+            'supervisor-critical' => [
                 'maxProcesses' => 10,
                 'balanceMaxShift' => 2,
                 'balanceCooldown' => 3,
             ],
+
+            'supervisor-logs' => [
+                'maxProcesses' => 3,
+                'balanceMaxShift' => 1,
+                'balanceCooldown' => 5,
+            ],
         ],
     ],
-
     /*
     |--------------------------------------------------------------------------
     | File Watcher Configuration
