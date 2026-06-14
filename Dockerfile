@@ -4,7 +4,7 @@ RUN apk add --no-cache \
     bash curl git unzip libzip-dev icu-dev oniguruma-dev \
     postgresql-dev linux-headers autoconf g++ make nginx npm
 
-RUN docker-php-ext-install pdo pdo_pgsql intl opcache pcntl
+RUN docker-php-ext-install pdo pdo_pgsql pgsql bcmath intl zip gd opcache pcntl sockets
 
 RUN pecl install redis mongodb \
     && docker-php-ext-enable redis mongodb
