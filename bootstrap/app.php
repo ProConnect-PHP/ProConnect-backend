@@ -4,6 +4,7 @@ use App\Exceptions\ApiExceptionHandler;
 use App\Http\Middleware\EnsureUserCanActAsClient;
 use App\Http\Middleware\EnsureUserHasRole;
 use App\Http\Middleware\ForceJsonResponse;
+use App\Http\Middleware\LogRequestPerformance;
 use App\Providers\BroadcastServiceProvider;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -26,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->api(prepend: [
             ForceJsonResponse::class,
+            LogRequestPerformance::class,
         ]);
     })
     ->withProviders([

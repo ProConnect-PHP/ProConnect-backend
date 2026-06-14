@@ -1,0 +1,42 @@
+FROM sail-8.5/app:latest
+
+WORKDIR /var/www/html
+
+ENV XDEBUG_MODE=off
+ENV SAIL_XDEBUG_MODE=off
+ENV COMPOSER_ALLOW_SUPERUSER=1
+
+COPY docker/php/conf.d/999-xdebug-off.ini /etc/php/8.5/cli/conf.d/999-xdebug-off.ini
+
+COPY composer.json composer.lock ./
+
+RUN composer install \
+    --no-interaction \
+    --prefer-dist \
+    --optimize-autoloader \
+    --no-scripts
+
+
+COPY . .
+
+RUN mkdir -p storage/framework/cache \
+    storage/framework/sessions \
+    storage/framework/views \
+    storage/logs \
+    bootstrap/cache \
+    && touch storage/logs/laravel.log \
+    && chown -R sail:sail storage bootstrap/cache \
+    && chmod -R ug+rwX storage bootstrap/cache
+
+RUN composer dump-autoload \
+    --optimize \
+    --no-interaction \
+    --no-scripts
+
+RUN php artisan package:discover --ansi || true
+
+USER sail
+
+EXPOSE 80
+
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=80"]
