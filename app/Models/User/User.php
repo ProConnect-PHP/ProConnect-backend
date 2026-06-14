@@ -12,10 +12,10 @@ use App\Models\Payment\PaymentIntent;
 use App\Models\Review\Review;
 use App\Models\Video\VideoSession;
 use App\Models\Video\VideoSessionParticipant;
+use App\Notifications\Auth\ResetPasswordNotification;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Attributes\Table;
-use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -41,6 +41,7 @@ class User extends Authenticatable implements JWTSubject
             'password_changed_at' => 'datetime',
         ];
     }
+
     public function professionalProfile(): HasOne
     {
         return $this->hasOne(ProfessionalProfile::class);
@@ -117,6 +118,11 @@ class User extends Authenticatable implements JWTSubject
     public function socialAccounts(): HasMany
     {
         return $this->hasMany(UserSocialAccount::class);
+    }
+
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new ResetPasswordNotification($token));
     }
 
     public function hasRole(UserRole|string $role): bool
