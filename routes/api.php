@@ -8,6 +8,7 @@ use App\Http\Controllers\Availability\AvailabilityExceptionController;
 use App\Http\Controllers\Availability\AvailabilityRuleController;
 use App\Http\Controllers\Booking\BookingAvailableActionsController;
 use App\Http\Controllers\Booking\BookingController;
+use App\Http\Controllers\Booking\ProfessionalAgendaController;
 use App\Http\Controllers\Booking\ProfessionalBookingController;
 use App\Http\Controllers\Booking\ProfessionalBookingPolicyController;
 use App\Http\Controllers\Booking\ProfessionalReminderRuleController;
@@ -123,8 +124,6 @@ Route::prefix('v1')->group(function (): void {
     | */
 
     Route::middleware('auth:user_jwt', 'jwt.password.fresh')->group(function (): void {
-
-        Route::get('/professional/agenda', [ProfessionalAgendaController::class, 'index']);
 
         /*
         |--------------------------------------------------------------------------
@@ -298,6 +297,7 @@ Route::prefix('v1')->group(function (): void {
             | Professional Bookings
             |--------------------------------------------------------------------------
             */
+            Route::get('/professional/agenda', [ProfessionalAgendaController::class, 'index']);
 
             Route::get('/professional/bookings', [ProfessionalBookingController::class, 'index']);
 
@@ -404,7 +404,7 @@ Route::prefix('v1')->group(function (): void {
 Route::get('/password-reset/{token}', function (Request $request, string $token) {
     $frontendUrl = rtrim(config('proconnect.frontend_url', config('app.url')), '/');
 
-    return redirect()->away($frontendUrl . '/reset-password?' . http_build_query([
+    return redirect()->away($frontendUrl.'/reset-password?'.http_build_query([
         'token' => $token,
         'email' => $request->query('email'),
     ]));
