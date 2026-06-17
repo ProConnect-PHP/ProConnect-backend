@@ -123,6 +123,9 @@ Route::prefix('v1')->group(function (): void {
     | */
 
     Route::middleware('auth:user_jwt', 'jwt.password.fresh')->group(function (): void {
+
+        Route::get('/professional/agenda', [ProfessionalAgendaController::class, 'index']);
+
         /*
         |--------------------------------------------------------------------------
         | Current User
