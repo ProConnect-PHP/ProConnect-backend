@@ -51,6 +51,8 @@ return new class extends Migration
             $table->index(['professional_id', 'starts_at', 'ends_at'], 'bookings_professional_agenda_range_idx');
             $table->index(['professional_id', 'status', 'starts_at'], 'bookings_professional_status_starts_idx');
 
+
+
         });
     }
 

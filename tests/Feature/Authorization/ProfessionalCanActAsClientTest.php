@@ -21,6 +21,11 @@ class ProfessionalCanActAsClientTest extends TestCase
 {
     use RefreshDatabase;
 
+    /**
+     * @var array<string, int>
+     */
+    private array $bookingSequenceByProfessional = [];
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -251,11 +256,42 @@ class ProfessionalCanActAsClientTest extends TestCase
     ): Booking {
         $service = $this->createService($professional);
 
+        $startsAt = array_key_exists('starts_at', $attributes)
+            ? Carbon::parse($attributes['starts_at'])->seconds(0)
+            : $this->nextBookingStartsAtForProfessional($professional);
+
+        $endsAt = array_key_exists('ends_at', $attributes)
+            ? Carbon::parse($attributes['ends_at'])->seconds(0)
+            : $startsAt->copy()->addMinutes((int) $service->duration_minutes);
+
+        unset($attributes['starts_at'], $attributes['ends_at']);
+
         return Booking::factory()->create(array_merge([
             'client_id' => $client->id,
             'professional_id' => $professional->id,
             'service_id' => $service->id,
+            'starts_at' => $startsAt,
+            'ends_at' => $endsAt,
         ], $attributes));
+    }
+
+    private function nextBookingStartsAtForProfessional(ProfessionalProfile $professional): Carbon
+    {
+        $professionalKey = (string) $professional->id;
+
+        $sequence = $this->bookingSequenceByProfessional[$professionalKey] ?? 0;
+
+        $this->bookingSequenceByProfessional[$professionalKey] = $sequence + 1;
+
+        /*
+         * 90 minutos:
+         * - 60 min duración default del servicio
+         * - 15 min buffer default
+         * - 15 min margen extra para que el test sea visualmente claro
+         */
+        return Carbon::parse('2026-06-02 09:00:00')
+            ->addMinutes($sequence * 90)
+            ->seconds(0);
     }
 
     /**

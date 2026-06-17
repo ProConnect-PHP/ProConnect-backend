@@ -57,10 +57,11 @@ class RescheduleBookingAction
 
             $startsAt = Carbon::parse($startsAt)->seconds(0);
             $endsAt = $startsAt->copy()->addMinutes((int) $service->duration_minutes);
+            $this->lockProfessionalBookingTimeline($service->professional_id);
 
             $this->ensureServiceCanBeBooked($service, $startsAt);
-            $this->ensureSlotExists($service, $startsAt, $endsAt, $this->generateAvailabilitySlots);
             $this->ensureSlotIsNotTaken($service, $startsAt, $endsAt, $booking);
+            $this->ensureSlotExists($service, $startsAt, $endsAt, $this->generateAvailabilitySlots);
 
             $booking->update([
                 'starts_at' => $startsAt,
