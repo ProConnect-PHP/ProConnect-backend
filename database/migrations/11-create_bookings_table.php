@@ -42,13 +42,15 @@ return new class extends Migration
             $table->text('cancellation_reason')->nullable();
             $table->text('reschedule_reason')->nullable();
 
-
             $table->timestamps();
             $table->softDeletes();
             $table->index(['service_id', 'starts_at', 'ends_at']);
             $table->index(['professional_id', 'starts_at']);
             $table->index(['client_id', 'starts_at']);
             $table->index(['status']);
+            $table->index(['professional_id', 'starts_at', 'ends_at'], 'bookings_professional_agenda_range_idx');
+            $table->index(['professional_id', 'status', 'starts_at'], 'bookings_professional_status_starts_idx');
+
         });
     }
 
