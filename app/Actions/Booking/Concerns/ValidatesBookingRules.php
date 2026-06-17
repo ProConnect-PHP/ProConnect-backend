@@ -9,6 +9,7 @@ use App\Models\Booking\Booking;
 use App\Models\Service\Service;
 use App\Models\User\User;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
 
 trait ValidatesBookingRules
@@ -48,6 +49,25 @@ trait ValidatesBookingRules
         );
     }
 
+    /**
+     * Lock lógico por profesional.
+     *
+     * Esto serializa reservas concurrentes del mismo profesional dentro de la transacción.
+     * Es importante porque lockForUpdate sobre Service no alcanza para evitar doble reserva
+     * entre servicios distintos del mismo profesional.
+     */
+    private function lockProfessionalBookingTimeline(int|string $professionalId): void
+    {
+        if (DB::getDriverName() !== 'pgsql') {
+            return;
+        }
+
+        DB::select(
+            'select pg_advisory_xact_lock(hashtext(?))',
+            ['professional-booking-timeline:' . $professionalId]
+        );
+    }
+
     private function ensureSlotExists(
         Service $service,
         Carbon $startsAt,
@@ -81,12 +101,7 @@ trait ValidatesBookingRules
         $activeCount = Booking::query()
             ->where('service_id', $service->id)
             ->where('client_id', $client->id)
-            ->whereIn('status', [
-                BookingStatus::Pending->value,
-                BookingStatus::Confirmed->value,
-                BookingStatus::Paid->value,
-                BookingStatus::InProgress->value,
-            ])
+            ->whereIn('status', $this->bookingStatusesThatOccupyProfessionalTimeline())
             ->count();
 
         if ($activeCount < $service->max_bookings_per_client) {
@@ -100,6 +115,9 @@ trait ValidatesBookingRules
         );
     }
 
+    /**
+     * Valida la agenda completa del profesional, no solamente el servicio.
+     */
     private function ensureSlotIsNotTaken(
         Service $service,
         Carbon $startsAt,
@@ -107,11 +125,8 @@ trait ValidatesBookingRules
         ?Booking $exceptBooking = null
     ): void {
         $query = Booking::query()
-            ->where('service_id', $service->id)
-            ->whereNotIn('status', [
-                BookingStatus::Cancelled->value,
-                BookingStatus::NoShow->value,
-            ])
+            ->where('professional_id', $service->professional_id)
+            ->whereIn('status', $this->bookingStatusesThatOccupyProfessionalTimeline())
             ->where(function ($query) use ($startsAt, $endsAt) {
                 $query
                     ->where('starts_at', '<', $endsAt)
@@ -122,14 +137,47 @@ trait ValidatesBookingRules
             $query->whereKeyNot($exceptBooking->id);
         }
 
-        if (! $query->exists()) {
+        $conflictingBooking = $query->first([
+            'id',
+            'service_id',
+            'professional_id',
+            'client_id',
+            'starts_at',
+            'ends_at',
+            'status',
+        ]);
+
+        if (! $conflictingBooking) {
             return;
         }
 
         throw new ApiException(
-            error: 'BookingSlotAlreadyTaken',
-            message: 'El horario seleccionado ya fue reservado.',
-            status: Response::HTTP_CONFLICT
+            error: 'ProfessionalTimeSlotUnavailable',
+            message: 'El profesional ya tiene una reserva en ese horario.',
+            status: Response::HTTP_CONFLICT,
+            details: [
+                'conflicting_booking_id' => $conflictingBooking->id,
+                'conflicting_service_id' => $conflictingBooking->service_id,
+                'conflicting_starts_at' => $conflictingBooking->starts_at?->toDateTimeString(),
+                'conflicting_ends_at' => $conflictingBooking->ends_at?->toDateTimeString(),
+                'conflicting_status' => $conflictingBooking->status?->value ?? $conflictingBooking->status,
+            ],
         );
+    }
+
+    /**
+     * Estados que bloquean la agenda del profesional.
+     *
+     * Cancelled no bloquea.
+     * NoShow normalmente ocurre después del horario, por eso no lo usamos para bloquear nuevos turnos.
+     */
+    private function bookingStatusesThatOccupyProfessionalTimeline(): array
+    {
+        return [
+            BookingStatus::Pending->value,
+            BookingStatus::Confirmed->value,
+            BookingStatus::Paid->value,
+            BookingStatus::InProgress->value,
+        ];
     }
 }

@@ -36,7 +36,7 @@ class CreateBookingAction
 
             $startsAt = Carbon::parse($startsAt)->seconds(0);
             $endsAt = $startsAt->copy()->addMinutes((int) $service->duration_minutes);
-
+            $this->lockProfessionalBookingTimeline($service->professional_id);
             $this->ensureServiceCanBeBooked($service, $startsAt);
             $this->ensureClientDoesNotOwnService($client, $service);
             $this->ensureSlotExists($service, $startsAt, $endsAt, $this->generateAvailabilitySlots);
