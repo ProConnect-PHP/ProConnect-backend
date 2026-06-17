@@ -39,9 +39,10 @@ class CreateBookingAction
             $this->lockProfessionalBookingTimeline($service->professional_id);
             $this->ensureServiceCanBeBooked($service, $startsAt);
             $this->ensureClientDoesNotOwnService($client, $service);
-            $this->ensureSlotExists($service, $startsAt, $endsAt, $this->generateAvailabilitySlots);
             $this->ensureMaxBookingsPerClient($service, $client);
+
             $this->ensureSlotIsNotTaken($service, $startsAt, $endsAt);
+            $this->ensureSlotExists($service, $startsAt, $endsAt, $this->generateAvailabilitySlots);
 
             $booking = Booking::create([
                 'service_id' => $service->id,

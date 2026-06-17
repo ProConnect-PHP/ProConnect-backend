@@ -60,8 +60,8 @@ class RescheduleBookingAction
             $this->lockProfessionalBookingTimeline($service->professional_id);
 
             $this->ensureServiceCanBeBooked($service, $startsAt);
-            $this->ensureSlotExists($service, $startsAt, $endsAt, $this->generateAvailabilitySlots);
             $this->ensureSlotIsNotTaken($service, $startsAt, $endsAt, $booking);
+            $this->ensureSlotExists($service, $startsAt, $endsAt, $this->generateAvailabilitySlots);
 
             $booking->update([
                 'starts_at' => $startsAt,

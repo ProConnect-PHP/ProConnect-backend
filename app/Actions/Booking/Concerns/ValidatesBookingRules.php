@@ -64,7 +64,7 @@ trait ValidatesBookingRules
 
         DB::select(
             'select pg_advisory_xact_lock(hashtext(?))',
-            ['professional-booking-timeline:' . $professionalId]
+            ['professional-booking-timeline:'.$professionalId]
         );
     }
 
@@ -152,7 +152,7 @@ trait ValidatesBookingRules
         }
 
         throw new ApiException(
-            error: 'ProfessionalTimeSlotUnavailable',
+            error: 'BookingSlotAlreadyTaken',
             message: 'El profesional ya tiene una reserva en ese horario.',
             status: Response::HTTP_CONFLICT,
             details: [
