@@ -15,7 +15,7 @@ class AdminUserSeeder extends Seeder
             ['email' => 'admin@proconnect.test'],
             [
                 'name' => 'Admin ProConnect',
-                'password' => Hash::make('Password123!'),
+                'password' => 'Password123!',
                 'role' => UserRole::Admin,
                 'status' => 'active',
                 'email_verified_at' => now(),
