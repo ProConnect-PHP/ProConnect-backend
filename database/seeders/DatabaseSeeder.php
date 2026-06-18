@@ -22,6 +22,8 @@ class DatabaseSeeder extends Seeder
             return;
         }
 
+        $this->call(AdminUserSeeder::class);
+
         // Allow disabling demo seeding via environment variable
         if (! (bool) env('SEED_DEMO_DATA', true)) {
             return;

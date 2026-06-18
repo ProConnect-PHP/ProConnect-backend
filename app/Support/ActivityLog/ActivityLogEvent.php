@@ -74,6 +74,7 @@ enum ActivityLogEvent: string
     case NotificationBroadcasted = 'notification.broadcasted';
 
     case AdminActivityLogViewed = 'admin.activity_log_viewed';
+    case AdminUserStatusUpdated = 'admin.user_status_updated';
 
     case SecurityForbidden = 'security.forbidden';
     case SecurityRateLimited = 'security.rate_limited';

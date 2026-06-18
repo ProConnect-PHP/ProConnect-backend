@@ -25,7 +25,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Tymon\JWTAuth\Contracts\JWTSubject;
 
-#[Fillable(['name', 'email', 'password', 'oauth_provider', 'oauth_provider_id', 'role', 'avatar_url', 'password_changed_at'])]
+#[Fillable(['name', 'email', 'password', 'oauth_provider', 'oauth_provider_id', 'role', 'status', 'avatar_url', 'password_changed_at'])]
 #[Hidden(['password', 'remember_token', 'email_verified_at', 'created_at', 'updated_at', 'deleted_at'])]
 #[Table('users')]
 class User extends Authenticatable implements JWTSubject
@@ -105,6 +105,16 @@ class User extends Authenticatable implements JWTSubject
     public function isProfessional(): bool
     {
         return $this->role === UserRole::Professional;
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === UserRole::Admin;
+    }
+
+    public function isActive(): bool
+    {
+        return ($this->status ?? 'active') === 'active';
     }
 
     public function canActAsClient(): bool

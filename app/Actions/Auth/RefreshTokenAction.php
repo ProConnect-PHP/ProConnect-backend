@@ -39,6 +39,20 @@ class RefreshTokenAction
         $token->update(['revoked_at' => now()]);
 
         $user = $token->user;
+
+        if (! $user->isActive()) {
+            $this->activityLogger->record(
+                event: ActivityLogEvent::AuthRefreshFailed,
+                severity: 'warning',
+                statusCode: Response::HTTP_UNAUTHORIZED,
+                metadata: ['reason' => 'account_disabled'],
+                actor: $user,
+                actingAs: ActivityLogActorMode::fromRole($user->role),
+            );
+
+            return ['access_token' => null, 'refresh_token' => null];
+        }
+
         /** @var JWTGuard $guard */
         $guard = auth('user_jwt');
         $newAccessToken = $guard->login($user);

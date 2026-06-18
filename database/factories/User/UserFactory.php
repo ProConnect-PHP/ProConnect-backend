@@ -19,6 +19,7 @@ class UserFactory extends Factory
             'email' => fake()->unique()->safeEmail(),
             'password' => 'password',
             'role' => 'client',
+            'status' => 'active',
             'avatar_url' => null,
         ];
     }

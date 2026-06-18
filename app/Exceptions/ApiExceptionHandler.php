@@ -227,7 +227,7 @@ final class ApiExceptionHandler
             return ActivityLogActorMode::Professional;
         }
 
-        if (in_array('role:admin', $middleware, true)) {
+        if (in_array('admin', $middleware, true) || in_array('role:admin', $middleware, true)) {
             return ActivityLogActorMode::Admin;
         }
 

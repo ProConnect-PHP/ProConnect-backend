@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\User;
 
+use BackedEnum;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -18,7 +19,8 @@ class UserResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'email' => $this->email,
-            'role' => $this->role,
+            'role' => $this->role instanceof BackedEnum ? $this->role->value : $this->role,
+            'status' => $this->status ?? 'active',
             'avatar_url' => $this->avatar_url, // Luego se hara con el $disk del FileSystem public de laravel
             'has_professional_profile' => $this->professionalProfile()->exists(),
         ];
