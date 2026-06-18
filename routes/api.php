@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\AdminMeController;
 use App\Http\Controllers\Admin\AdminMetricsController;
 use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\OAuthController;
 use App\Http\Controllers\Availability\AvailabilityController;
 use App\Http\Controllers\Availability\AvailabilityExceptionController;
@@ -99,6 +100,9 @@ Route::prefix('v1')->group(function (): void {
         Route::post('/refresh', [AuthController::class, 'refresh'])
             ->middleware('throttle:auth-refresh');
 
+        Route::post('/email-verification/verify', [EmailVerificationController::class, 'verify'])
+            ->middleware('throttle:api-public');
+
         Route::prefix('oauth')->group(function (): void {
             Route::get('{provider}/redirect', [OAuthController::class, 'redirect']);
             Route::get('{provider}/callback', [OAuthController::class, 'callback']);
@@ -113,6 +117,11 @@ Route::prefix('v1')->group(function (): void {
 
         Route::middleware(['auth:user_jwt', 'jwt.password.fresh', 'throttle:api-authenticated'])->group(function (): void {
             Route::post('/logout', [AuthController::class, 'logout']);
+        });
+
+        Route::middleware(['auth:user_jwt', 'jwt.password.fresh'])->group(function (): void {
+            Route::post('/email-verification/send', [EmailVerificationController::class, 'send'])
+                ->middleware('throttle:email-verification-send');
         });
     });
 
@@ -138,7 +147,7 @@ Route::prefix('v1')->group(function (): void {
             Route::put('/me', [UserController::class, 'update']);
         });
 
-        Route::middleware(['admin', 'throttle:api-authenticated'])
+        Route::middleware(['admin', 'verified.email', 'throttle:api-authenticated'])
             ->prefix('admin')
             ->group(function (): void {
                 Route::get('/me', AdminMeController::class);
@@ -165,7 +174,7 @@ Route::prefix('v1')->group(function (): void {
         | Client Booking Writes
         |--------------------------------------------------------------------------
         */
-        Route::middleware(['client-capable', 'throttle:booking-write'])->group(function (): void {
+        Route::middleware(['client-capable', 'verified.email', 'throttle:booking-write'])->group(function (): void {
             Route::post('/services/{service}/bookings', [BookingController::class, 'store']);
         });
 
@@ -210,7 +219,7 @@ Route::prefix('v1')->group(function (): void {
         |--------------------------------------------------------------------------
         */
 
-        Route::middleware(['client-capable', 'throttle:payment-actions'])->group(function (): void {
+        Route::middleware(['client-capable', 'verified.email', 'throttle:payment-actions'])->group(function (): void {
             Route::post('/payment-intents', [PaymentIntentController::class, 'store']);
             Route::post('/bookings/{booking}/payment-intents', [BookingPaymentIntentController::class, 'store']);
 
@@ -229,7 +238,7 @@ Route::prefix('v1')->group(function (): void {
         |--------------------------------------------------------------------------
         */
 
-        Route::middleware(['client-capable', 'throttle:reviews-write'])->group(function (): void {
+        Route::middleware(['client-capable', 'verified.email', 'throttle:reviews-write'])->group(function (): void {
             Route::post('/bookings/{booking}/review', [BookingReviewController::class, 'store']);
             Route::put('/reviews/{review}', [ReviewController::class, 'update']);
             Route::delete('/reviews/{review}', [ReviewController::class, 'destroy']);
@@ -244,7 +253,7 @@ Route::prefix('v1')->group(function (): void {
         |
         | */
 
-        Route::middleware(['role:client,professional', 'throttle:booking-write'])->group(function (): void {
+        Route::middleware(['role:client,professional', 'verified.email', 'throttle:booking-write'])->group(function (): void {
             Route::post('/bookings/{booking}/cancel', [BookingController::class, 'cancel']);
             Route::post('/bookings/{booking}/reschedule', [BookingController::class, 'reschedule']);
         });
@@ -258,7 +267,7 @@ Route::prefix('v1')->group(function (): void {
         |
         | */
 
-        Route::middleware(['role:client,professional', 'throttle:video-join'])->group(function (): void {
+        Route::middleware(['role:client,professional', 'verified.email', 'throttle:video-join'])->group(function (): void {
             Route::post('/bookings/{booking}/video-session', [BookingVideoSessionController::class, 'store']);
 
             Route::post('/video-sessions/bookings/{booking}/join', LiveKitJoinVideoSessionController::class);
@@ -275,7 +284,7 @@ Route::prefix('v1')->group(function (): void {
         |
         | */
 
-        Route::middleware(['role:professional', 'throttle:api-authenticated'])->group(function (): void {
+        Route::middleware(['role:professional', 'verified.email', 'throttle:api-authenticated'])->group(function (): void {
             /*
             |--------------------------------------------------------------------------
             | Professional Profile
@@ -368,7 +377,7 @@ Route::prefix('v1')->group(function (): void {
         |--------------------------------------------------------------------------
         */
 
-        Route::middleware(['role:professional', 'throttle:booking-write'])->group(function (): void {
+        Route::middleware(['role:professional', 'verified.email', 'throttle:booking-write'])->group(function (): void {
             Route::post('/bookings/{booking}/confirm', [ProfessionalBookingController::class, 'confirm']);
         });
 
@@ -378,7 +387,7 @@ Route::prefix('v1')->group(function (): void {
         |--------------------------------------------------------------------------
         */
 
-        Route::middleware(['role:professional', 'throttle:reviews-write'])->group(function (): void {
+        Route::middleware(['role:professional', 'verified.email', 'throttle:reviews-write'])->group(function (): void {
             Route::post('/reviews/{review}/replies', [ReviewReplyController::class, 'store']);
             Route::put('/review-replies/{reply}', [ReviewReplyController::class, 'update']);
         });

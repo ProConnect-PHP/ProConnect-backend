@@ -13,6 +13,7 @@ final class ApiRateLimit
     {
         $user = self::user($request);
         $role = match (true) {
+            $user?->isAdmin() => 'admin',
             $user?->isProfessional() => 'professional',
             $user?->isClient() => 'client',
             default => 'guest',

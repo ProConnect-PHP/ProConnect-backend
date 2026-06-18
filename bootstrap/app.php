@@ -1,6 +1,7 @@
 <?php
 
 use App\Exceptions\ApiExceptionHandler;
+use App\Http\Middleware\EnsureEmailIsVerified;
 use App\Http\Middleware\EnsureJwtWasIssuedAfterPasswordChange;
 use App\Http\Middleware\EnsureUserCanActAsClient;
 use App\Http\Middleware\EnsureUserIsAdmin;
@@ -26,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => EnsureUserIsAdmin::class,
             'client-capable' => EnsureUserCanActAsClient::class,
             'role' => EnsureUserHasRole::class,
+            'verified.email' => EnsureEmailIsVerified::class,
             'jwt.password.fresh' => EnsureJwtWasIssuedAfterPasswordChange::class,
         ]);
 
