@@ -57,6 +57,11 @@ class User extends Authenticatable implements JWTSubject
         return $this->hasOne(RefreshToken::class);
     }
 
+    public function emailVerificationTokens(): HasMany
+    {
+        return $this->hasMany(EmailVerificationToken::class);
+    }
+
     public function bookings(): HasMany
     {
         return $this->hasMany(Booking::class, 'client_id');

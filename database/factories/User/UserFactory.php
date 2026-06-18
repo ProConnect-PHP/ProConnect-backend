@@ -20,6 +20,7 @@ class UserFactory extends Factory
             'password' => 'password',
             'role' => 'client',
             'status' => 'active',
+            'email_verified_at' => now(),
             'avatar_url' => null,
         ];
     }
@@ -35,6 +36,13 @@ class UserFactory extends Factory
     {
         return $this->state(fn () => [
             'role' => 'admin',
+        ]);
+    }
+
+    public function unverified(): static
+    {
+        return $this->state(fn () => [
+            'email_verified_at' => null,
         ]);
     }
 }

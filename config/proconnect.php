@@ -3,6 +3,10 @@
 return [
     'frontend_url' => env('FRONTEND_URL', 'http://localhost:4200'),
 
+    'email_verification' => [
+        'token_ttl_minutes' => (int) env('EMAIL_VERIFICATION_TOKEN_TTL_MINUTES', 60),
+    ],
+
     'reviews' => [
         'edit_window_days' => (int) env('REVIEW_EDIT_WINDOW_DAYS', 7),
     ],

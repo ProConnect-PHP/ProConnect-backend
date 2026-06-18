@@ -56,6 +56,7 @@ use App\Services\Payment\Providers\PayPal\PayPalPaymentProvider;
 use App\Services\Payment\Providers\Simulator\SimulatorPaymentProvider;
 use App\Support\ActivityLog\ActivityLogger;
 use App\Support\Security\ApiRateLimit;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -119,6 +120,20 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for(
             'auth-refresh',
             fn (Request $request) => ApiRateLimit::byIp($request, 'auth_refresh')
+        );
+        RateLimiter::for(
+            'email-verification-send',
+            function (Request $request): Limit {
+                $user = $request->user('user_jwt');
+                $key = $user
+                    ? 'email-verification-send:user:'.$user->getAuthIdentifier()
+                    : 'email-verification-send:ip:'.$request->ip();
+
+                return Limit::perMinutes(
+                    (int) config('security.rate_limits.email_verification_send.decay_minutes', 10),
+                    (int) config('security.rate_limits.email_verification_send.max_attempts', 3)
+                )->by($key);
+            }
         );
         RateLimiter::for(
             'booking-write',

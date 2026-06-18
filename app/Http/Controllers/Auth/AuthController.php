@@ -6,6 +6,7 @@ use App\Actions\Auth\LoginAction;
 use App\Actions\Auth\LogoutAction;
 use App\Actions\Auth\RefreshTokenAction;
 use App\Actions\Auth\RegisterUserAction;
+use App\Actions\Auth\SendEmailVerificationAction;
 use App\Exceptions\ApiExceptionRenderer;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
@@ -20,14 +21,20 @@ class AuthController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function register(RegisterUserRequest $registerUserRequest, RegisterUserAction $registerUserAction): JsonResponse
+    public function register(
+        RegisterUserRequest $registerUserRequest,
+        RegisterUserAction $registerUserAction,
+        SendEmailVerificationAction $sendEmailVerificationAction,
+    ): JsonResponse
     {
         $user = $registerUserAction($registerUserRequest);
+        $sendEmailVerificationAction($user);
 
         return response()
             ->json(
                 [
                     'message' => 'User created successfully',
+                    'email_verification_required' => true,
                     'user' => new UserResource($user),
                 ],
                 Response::HTTP_CREATED

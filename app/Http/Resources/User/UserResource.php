@@ -21,6 +21,8 @@ class UserResource extends JsonResource
             'email' => $this->email,
             'role' => $this->role instanceof BackedEnum ? $this->role->value : $this->role,
             'status' => $this->status ?? 'active',
+            'email_verified_at' => $this->email_verified_at?->toJSON(),
+            'email_verified' => $this->email_verified_at !== null,
             'avatar_url' => $this->avatar_url, // Luego se hara con el $disk del FileSystem public de laravel
             'has_professional_profile' => $this->professionalProfile()->exists(),
         ];
