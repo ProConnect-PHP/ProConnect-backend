@@ -42,6 +42,24 @@ class LoginAction
         }
 
         $user = $guard->getLastAttempted();
+
+        if (! $user->isActive()) {
+            $this->activityLogger->record(
+                event: ActivityLogEvent::AuthLoginFailed,
+                severity: 'warning',
+                statusCode: Response::HTTP_UNAUTHORIZED,
+                metadata: [
+                    'email_attempted' => $credentials['email'],
+                    'login_method' => 'password',
+                    'reason' => 'account_disabled',
+                ],
+                actor: $user,
+                actingAs: ActivityLogActorMode::fromRole($user->role),
+            );
+
+            return null;
+        }
+
         $tokens = $this->tokenIssuer->issueForUser($user);
 
         $this->activityLogger->record(

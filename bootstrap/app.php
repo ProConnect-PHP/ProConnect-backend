@@ -3,6 +3,7 @@
 use App\Exceptions\ApiExceptionHandler;
 use App\Http\Middleware\EnsureJwtWasIssuedAfterPasswordChange;
 use App\Http\Middleware\EnsureUserCanActAsClient;
+use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Http\Middleware\EnsureUserHasRole;
 use App\Http\Middleware\ForceJsonResponse;
 use App\Http\Middleware\LogRequestPerformance;
@@ -22,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ])
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
+            'admin' => EnsureUserIsAdmin::class,
             'client-capable' => EnsureUserCanActAsClient::class,
             'role' => EnsureUserHasRole::class,
             'jwt.password.fresh' => EnsureJwtWasIssuedAfterPasswordChange::class,

@@ -1,6 +1,9 @@
 <?php
 
 use App\Http\Controllers\Admin\ActivityLogController;
+use App\Http\Controllers\Admin\AdminMeController;
+use App\Http\Controllers\Admin\AdminMetricsController;
+use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\OAuthController;
 use App\Http\Controllers\Availability\AvailabilityController;
@@ -60,7 +63,6 @@ Route::prefix('v1')->group(function (): void {
     | profesionales, disponibilidad pública, reseñas públicas y paquetes públicos.
     |
     */
-    Route::get('/admin/activity-logs', [ActivityLogController::class, 'index']);
     Route::middleware('throttle:api-public')->group(function (): void {
         Route::get('/services/{service}/availability', [AvailabilityController::class, 'show']);
         Route::get('/services/{service}/reviews', [PublicServiceReviewController::class, 'index']);
@@ -136,10 +138,16 @@ Route::prefix('v1')->group(function (): void {
             Route::put('/me', [UserController::class, 'update']);
         });
 
-        // Route::middleware(['role:admin', 'throttle:api-authenticated'])
-        // ->prefix('admin')
-        // ->group(function (): void {
-        // });
+        Route::middleware(['admin', 'throttle:api-authenticated'])
+            ->prefix('admin')
+            ->group(function (): void {
+                Route::get('/me', AdminMeController::class);
+                Route::get('/metrics', AdminMetricsController::class);
+                Route::get('/users', [AdminUserController::class, 'index']);
+                Route::get('/users/{user}', [AdminUserController::class, 'show']);
+                Route::patch('/users/{user}/status', [AdminUserController::class, 'updateStatus']);
+                Route::get('/activity-logs', [ActivityLogController::class, 'index']);
+            });
 
         Route::middleware(['client-capable', 'throttle:api-authenticated'])->group(function (): void {
             Route::get('/bookings/my', [BookingController::class, 'my']);

@@ -36,6 +36,10 @@ class UpdateUserRequest extends FormRequest
                 'string',
                 Rule::enum(UserRole::class),
                 function ($attribute, $value, $fail) {
+                    if ($value === UserRole::Admin->value) {
+                        $fail('No se puede asignar el rol administrador desde este endpoint.');
+                    }
+
                     if ($this->user()->isProfessional() && $value === UserRole::Client->value) {
                         $fail('No se puede cambiar el rol de profesional a cliente.');
                     }
