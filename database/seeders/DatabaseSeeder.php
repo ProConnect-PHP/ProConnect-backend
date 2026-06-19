@@ -17,7 +17,11 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        // Protect production from accidental demo data
+
+
         $this->call(AdminUserSeeder::class);
+
         $this->call(DemoDatabaseSeeder::class);
     }
 }
