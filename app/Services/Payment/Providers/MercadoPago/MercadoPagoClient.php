@@ -69,6 +69,57 @@ final class MercadoPagoClient
         return $response->json();
     }
 
+    public function findPaymentByExternalReference(string $externalReference): ?array
+    {
+        $response = $this->request()->get('/v1/payments/search', [
+            'external_reference' => $externalReference,
+            'sort' => 'date_created',
+            'criteria' => 'desc',
+        ]);
+
+        if ($response->failed()) {
+            Log::error('MercadoPago payment search by external_reference failed', [
+                'external_reference' => $externalReference,
+                'provider_status' => $response->status(),
+                'provider_response' => $response->json(),
+                'provider_raw_body' => $response->body(),
+            ]);
+
+            throw $this->providerException(
+                'MercadoPagoPaymentSearchFailed',
+                'No se pudo buscar el pago de MercadoPago por referencia externa.',
+                $response->status(),
+                $response->json(),
+                $response->body(),
+            );
+        }
+
+        $results = $response->json('results', []);
+
+        if (! is_array($results) || $results === []) {
+            return null;
+        }
+
+        /**
+         * Priorizamos pagos aprobados.
+         */
+        foreach ($results as $payment) {
+            if (
+                is_array($payment)
+                && ($payment['status'] ?? null) === 'approved'
+            ) {
+                return $payment;
+            }
+        }
+
+        /**
+         * Si todavía no hay aprobado, devolvemos el más reciente.
+         */
+        $first = $results[0] ?? null;
+
+        return is_array($first) ? $first : null;
+    }
+
     public function getPayment(string $paymentId): array
     {
         $response = $this->request()->get('/v1/payments/'.$paymentId);

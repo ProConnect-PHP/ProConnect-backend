@@ -65,35 +65,93 @@ final readonly class MercadoPagoPaymentProvider implements IPaymentProviderGatew
         );
     }
 
+    /**
+     * USO:
+     * - Webhook de Mercado Pago.
+     * - Acá providerReference DEBE ser el payment_id real de Mercado Pago.
+     *
+     * NO usar con preference_id.
+     */
     public function fetchPaymentStatus(string $providerReference): ProviderPaymentStatus
     {
         $payment = $this->client->getPayment($providerReference);
-        $rawStatus = (string) ($payment['status'] ?? 'unknown');
 
-        return new ProviderPaymentStatus(
-            providerReference: (string) (
-                $payment['order']['id']
-                ?? $providerReference
-            ),
-            status: $this->statusMapper->map($rawStatus),
-            rawStatus: $rawStatus,
-            providerPaymentId: isset($payment['id']) ? (string) $payment['id'] : null,
-            paymentIntentId: $this->paymentIntentId($payment),
-            paidAt: $payment['date_approved'] ?? null,
-            amount: isset($payment['transaction_amount'])
-                ? (string) $payment['transaction_amount']
-                : null,
-            currency: isset($payment['currency_id'])
-                ? (string) $payment['currency_id']
-                : null,
-            metadata: [
-                'mercadopago_status' => $rawStatus,
-                'status_detail' => $payment['status_detail'] ?? null,
-                'external_reference' => $payment['external_reference'] ?? null,
-                'payment_type_id' => $payment['payment_type_id'] ?? null,
-                'payment_method_id' => $payment['payment_method_id'] ?? null,
-                'verification_mode' => 'provider_api_lookup',
-            ],
+        return $this->providerStatusFromPayment(
+            payment: $payment,
+            fallbackReference: $providerReference,
+            verificationMode: 'provider_payment_id_lookup',
+        );
+    }
+
+    /**
+     * USO:
+     * - Botón "Actualizar estado".
+     * - Pantalla de retorno del cliente.
+     * - Reconciliación cuando el webhook no llegó, llegó tarde o falló.
+     *
+     * Este método SÍ es resiliente.
+     */
+    public function fetchPaymentStatusForIntent(
+        PaymentIntent $intent
+    ): ProviderPaymentStatus {
+        /**
+         * Caso 1:
+         * Ya conocemos el payment_id real de Mercado Pago.
+         */
+        if (
+            $intent->provider_payment_id !== null
+            && (string) $intent->provider_payment_id !== ''
+        ) {
+            $payment = $this->client->getPayment(
+                (string) $intent->provider_payment_id
+            );
+
+            return $this->providerStatusFromPayment(
+                payment: $payment,
+                fallbackReference: (string) $intent->provider_reference,
+                verificationMode: 'stored_provider_payment_id_lookup',
+            );
+        }
+
+        /**
+         * Caso 2:
+         * No llegó el webhook, entonces todavía no tenemos provider_payment_id.
+         *
+         * Buscamos en Mercado Pago por external_reference.
+         * En tu createPreference ya mandás:
+         *
+         * external_reference = $intent->id
+         */
+        $payment = $this->client->findPaymentByExternalReference(
+            (string) $intent->id
+        );
+
+        /**
+         * No se encontró pago todavía.
+         * Esto NO debe romper la pantalla del cliente.
+         */
+        if ($payment === null) {
+            return new ProviderPaymentStatus(
+                providerReference: (string) $intent->provider_reference,
+                status: $this->statusMapper->map('pending'),
+                rawStatus: 'pending',
+                providerPaymentId: null,
+                paymentIntentId: (string) $intent->id,
+                paidAt: null,
+                amount: null,
+                currency: null,
+                metadata: [
+                    'mercadopago_status' => 'pending',
+                    'verification_mode' => 'external_reference_lookup',
+                    'payment_found' => false,
+                ],
+            );
+        }
+
+        return $this->providerStatusFromPayment(
+            payment: $payment,
+            fallbackReference: (string) $intent->provider_reference,
+            verificationMode: 'external_reference_lookup',
         );
     }
 
@@ -140,6 +198,49 @@ final readonly class MercadoPagoPaymentProvider implements IPaymentProviderGatew
                 'api_version' => $request->input('api_version'),
                 'data' => ['id' => $resourceId],
             ]),
+        );
+    }
+
+    private function providerStatusFromPayment(
+        array $payment,
+        string $fallbackReference,
+        string $verificationMode,
+    ): ProviderPaymentStatus {
+        $rawStatus = (string) ($payment['status'] ?? 'unknown');
+
+        return new ProviderPaymentStatus(
+            /**
+             * Acá NO uses order.id.
+             *
+             * El dato más importante para ProConnect es external_reference,
+             * porque external_reference = payment_intent_id interno.
+             */
+            providerReference: (string) (
+                $payment['external_reference']
+                ?? data_get($payment, 'metadata.payment_intent_id')
+                ?? $fallbackReference
+            ),
+            status: $this->statusMapper->map($rawStatus),
+            rawStatus: $rawStatus,
+            providerPaymentId: isset($payment['id'])
+                ? (string) $payment['id']
+                : null,
+            paymentIntentId: $this->paymentIntentId($payment),
+            paidAt: $payment['date_approved'] ?? null,
+            amount: isset($payment['transaction_amount'])
+                ? (string) $payment['transaction_amount']
+                : null,
+            currency: isset($payment['currency_id'])
+                ? (string) $payment['currency_id']
+                : null,
+            metadata: [
+                'mercadopago_status' => $rawStatus,
+                'status_detail' => $payment['status_detail'] ?? null,
+                'external_reference' => $payment['external_reference'] ?? null,
+                'payment_type_id' => $payment['payment_type_id'] ?? null,
+                'payment_method_id' => $payment['payment_method_id'] ?? null,
+                'verification_mode' => $verificationMode,
+            ],
         );
     }
 

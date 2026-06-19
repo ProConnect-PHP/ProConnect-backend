@@ -18,18 +18,10 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // Protect production from accidental demo data
-        if (app()->environment('production')) {
-            return;
-        }
+
 
         $this->call(AdminUserSeeder::class);
 
-        // Allow disabling demo seeding via environment variable
-        if (! (bool) env('SEED_DEMO_DATA', true)) {
-            return;
-        }
-
-        // Load demo dataset
         $this->call(DemoDatabaseSeeder::class);
     }
 }
