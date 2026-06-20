@@ -16,6 +16,7 @@ use App\Models\Payment\PaymentWebhookEvent;
 use App\Services\Payment\PaymentAmountFormatter;
 use App\Services\Payment\PaymentProviderManager;
 use App\Services\Payment\PaymentWebhookIdempotencyService;
+use App\Services\Payment\Providers\PayPal\PayPalPaymentProvider;
 use App\Support\ActivityLog\ActivityLogActorMode;
 use App\Support\ActivityLog\ActivityLogEvent;
 use App\Support\ActivityLog\ActivityLogger;
@@ -43,6 +44,20 @@ final readonly class ProcessPaymentWebhookAction
         $gateway = $this->providers->driver($provider);
         $webhook = $gateway->parseWebhook($request);
         [$event, $acquired] = $this->idempotency->acquire($webhook);
+
+        if ($provider === PaymentProvider::PayPal) {
+            Log::info('[PAYPAL WEBHOOK RECEIVED]', [
+                ...$this->webhookMetadata($event),
+                'payment_intent_id' => data_get(
+                    $event->payload,
+                    'resource.purchase_units.0.custom_id'
+                ) ?? data_get($event->payload, 'resource.custom_id'),
+                'booking_id' => null,
+                'paypal_order_id' => $event->resource_id,
+                'paypal_capture_id' => data_get($event->payload, 'resource.id'),
+                'transmission_id' => $request->header('PAYPAL-TRANSMISSION-ID'),
+            ]);
+        }
 
         $this->activityLogger->record(
             event: ActivityLogEvent::PaymentWebhookReceived,
@@ -129,6 +144,14 @@ final readonly class ProcessPaymentWebhookAction
         PaymentWebhookEvent $event,
         IPaymentProviderGateway $gateway,
     ): PaymentWebhookEvent {
+        if ($provider === PaymentProvider::PayPal) {
+            return $this->processPayPalSignedWebhook(
+                webhook: $webhook,
+                event: $event,
+                gateway: $gateway,
+            );
+        }
+
         try {
             if (! $webhook->resourceId) {
                 throw new ApiException(
@@ -149,6 +172,7 @@ final readonly class ProcessPaymentWebhookAction
                 providerReference: $providerStatus->providerReference,
                 resourceId: $webhook->resourceId,
             );
+            $event->update(['payment_intent_id' => $intent->id]);
             $this->validateProviderAmount($intent, $providerStatus);
             $this->validateProviderPaymentIdentity(
                 $intent,
@@ -172,6 +196,195 @@ final readonly class ProcessPaymentWebhookAction
 
             throw $exception;
         }
+    }
+
+    private function processPayPalSignedWebhook(
+        ProviderWebhookData $webhook,
+        PaymentWebhookEvent $event,
+        IPaymentProviderGateway $gateway,
+    ): PaymentWebhookEvent {
+        if (! $gateway instanceof PayPalPaymentProvider) {
+            throw new ApiException(
+                error: 'PaymentProviderMisconfigured',
+                message: 'El proveedor PayPal no esta configurado correctamente.',
+                status: Response::HTTP_SERVICE_UNAVAILABLE,
+            );
+        }
+
+        $eventType = strtoupper(trim((string) $webhook->eventType));
+        $supportedEventTypes = [
+            'CHECKOUT.ORDER.APPROVED',
+            'PAYMENT.CAPTURE.COMPLETED',
+            'PAYMENT.CAPTURE.PENDING',
+            'PAYMENT.CAPTURE.DENIED',
+        ];
+        $intent = null;
+
+        if (! in_array($eventType, $supportedEventTypes, true)) {
+            $event->update([
+                'status' => PaymentWebhookEventStatus::Ignored,
+                'failure_reason' => 'Unsupported PayPal webhook event type.',
+                'processed_at' => now(),
+            ]);
+
+            return $event->refresh();
+        }
+
+        try {
+            if (! $webhook->resourceId) {
+                throw new ApiException(
+                    error: 'PaymentWebhookResourceMissing',
+                    message: 'El webhook de PayPal no contiene una orden asociada.',
+                    status: Response::HTTP_UNPROCESSABLE_ENTITY,
+                );
+            }
+
+            $event->update(['status' => PaymentWebhookEventStatus::Processing]);
+            $webhookStatus = $gateway->statusFromWebhook($webhook);
+            $intent = $this->resolveIntent(
+                provider: PaymentProvider::PayPal,
+                paymentIntentId: $webhookStatus->paymentIntentId,
+                providerReference: $webhookStatus->providerReference,
+                resourceId: $webhook->resourceId,
+            );
+            $event->update(['payment_intent_id' => $intent->id]);
+            $this->validatePayPalOrderIdentity($intent, $webhookStatus);
+
+            if ($eventType === 'CHECKOUT.ORDER.APPROVED') {
+                Log::info('[PAYPAL CAPTURE REQUEST]', [
+                    'payment_intent_id' => (string) $intent->id,
+                    'booking_id' => $intent->booking_id,
+                    'paypal_order_id' => $webhookStatus->providerReference,
+                    'paypal_capture_id' => null,
+                    'event_type' => $eventType,
+                    'provider_status' => $webhookStatus->rawStatus,
+                ]);
+
+                $providerStatus = $gateway->captureOrder(
+                    $webhookStatus->providerReference
+                );
+
+                Log::info('[PAYPAL CAPTURE RESPONSE]', [
+                    'payment_intent_id' => (string) $intent->id,
+                    'booking_id' => $intent->booking_id,
+                    'paypal_order_id' => $providerStatus->providerReference,
+                    'paypal_capture_id' => $providerStatus->providerPaymentId,
+                    'event_type' => $eventType,
+                    'provider_status' => $providerStatus->rawStatus,
+                    'debug_id' => $providerStatus->metadata['debug_id'] ?? null,
+                ]);
+            } else {
+                $providerStatus = $webhookStatus;
+            }
+
+            if (
+                $providerStatus->status === PaymentStatus::Succeeded
+                && ($providerStatus->amount === null
+                    || $providerStatus->currency === null)
+            ) {
+                $providerStatus = $gateway->fetchOrderStatus(
+                    $webhookStatus->providerReference
+                );
+            }
+
+            $this->validatePayPalOrderIdentity($intent, $providerStatus);
+            $this->validateProviderAmount($intent, $providerStatus);
+            $this->validateProviderPaymentIdentity($intent, $providerStatus);
+            $providerStatus = $this->withWebhookAuditMetadata(
+                providerStatus: $providerStatus,
+                event: $event,
+                signatureValid: true,
+                verificationMode: $eventType === 'CHECKOUT.ORDER.APPROVED'
+                    ? 'signed_webhook_capture'
+                    : 'signed_webhook_capture_event',
+            );
+
+            return $this->applyProviderPaymentStatus(
+                intent: $intent,
+                providerStatus: $providerStatus,
+                event: $event,
+                processedReason: null,
+            );
+        } catch (Throwable $exception) {
+            if (
+                $intent instanceof PaymentIntent
+                && $eventType === 'CHECKOUT.ORDER.APPROVED'
+                && $exception instanceof ApiException
+                && $this->isFinalPayPalCaptureFailure($exception)
+            ) {
+                return $this->markPayPalCaptureFailure(
+                    event: $event,
+                    intent: $intent,
+                    exception: $exception,
+                );
+            }
+
+            $this->markFailed($event, $exception);
+
+            throw $exception;
+        }
+    }
+
+    private function isFinalPayPalCaptureFailure(
+        ApiException $exception
+    ): bool {
+        $providerStatus = is_array($exception->details())
+            ? ($exception->details()['provider_status'] ?? null)
+            : null;
+
+        return $exception->error() === 'PayPalCaptureFailed'
+            && is_int($providerStatus)
+            && $providerStatus >= 400
+            && $providerStatus < 500;
+    }
+
+    private function markPayPalCaptureFailure(
+        PaymentWebhookEvent $event,
+        PaymentIntent $intent,
+        ApiException $exception,
+    ): PaymentWebhookEvent {
+        $details = is_array($exception->details())
+            ? $exception->details()
+            : [];
+        $providerStatus = new ProviderPaymentStatus(
+            providerReference: (string) $intent->provider_reference,
+            status: PaymentStatus::Rejected,
+            rawStatus: 'CAPTURE_ERROR',
+            paymentIntentId: (string) $intent->id,
+            metadata: [
+                'paypal_order_id' => $intent->provider_reference,
+                'provider_http_status' => $details['provider_status'] ?? null,
+                'provider_error' => $details['provider_error'] ?? null,
+                'debug_id' => data_get($details, 'provider_body.debug_id'),
+                'paypal_event_type' => $event->event_type,
+            ],
+        );
+
+        ($this->markPaymentFailed)(
+            $intent,
+            $providerStatus,
+            ActivityLogActorMode::System,
+            $exception->getMessage(),
+        );
+
+        $event->update([
+            'status' => PaymentWebhookEventStatus::Processed,
+            'processed_at' => now(),
+            'failure_reason' => 'PayPal capture rejected: '
+                .mb_substr($exception->getMessage(), 0, 900),
+        ]);
+
+        Log::warning('[PAYPAL WEBHOOK PROCESSED]', [
+            ...$this->webhookMetadata($event),
+            'payment_intent_id' => (string) $intent->id,
+            'booking_id' => $intent->booking_id,
+            'paypal_order_id' => $intent->provider_reference,
+            'paypal_capture_id' => null,
+            'provider_status' => 'CAPTURE_ERROR',
+            'debug_id' => data_get($details, 'provider_body.debug_id'),
+        ]);
+
+        return $event->refresh();
     }
 
     private function processMercadoPagoInvalidSignatureWebhook(
@@ -223,6 +436,7 @@ final readonly class ProcessPaymentWebhookAction
 
         $event->update([
             'status' => PaymentWebhookEventStatus::Processing,
+            'payment_intent_id' => $intent->id,
             'failure_reason' => $processedReason,
         ]);
 
@@ -355,7 +569,39 @@ final readonly class ProcessPaymentWebhookAction
             actingAs: ActivityLogActorMode::System,
         );
 
+        if ($event->provider === PaymentProvider::PayPal) {
+            Log::info('[PAYPAL WEBHOOK PROCESSED]', [
+                ...$this->webhookMetadata($event),
+                'payment_intent_id' => (string) $intent->id,
+                'booking_id' => $intent->booking_id,
+                'paypal_order_id' => $providerStatus->providerReference,
+                'paypal_capture_id' => $providerStatus->providerPaymentId,
+                'provider_status' => $providerStatus->rawStatus,
+                'debug_id' => $providerStatus->metadata['debug_id'] ?? null,
+            ]);
+        }
+
         return $event->refresh();
+    }
+
+    private function validatePayPalOrderIdentity(
+        PaymentIntent $intent,
+        ProviderPaymentStatus $providerStatus
+    ): void {
+        if (
+            ! is_string($intent->provider_reference)
+            || $intent->provider_reference === ''
+            || ! hash_equals(
+                $intent->provider_reference,
+                $providerStatus->providerReference
+            )
+        ) {
+            throw new ApiException(
+                error: 'ProviderPaymentIdentityMismatch',
+                message: 'La orden PayPal no corresponde a la intencion de pago.',
+                status: Response::HTTP_CONFLICT,
+            );
+        }
     }
 
     private function resolveIntent(
@@ -629,6 +875,10 @@ final readonly class ProcessPaymentWebhookAction
             'resource_type' => $event->resource_type,
             'resource_id' => $event->resource_id,
             'signature_valid' => $event->signature_valid,
+            'custom_id' => data_get(
+                $event->payload,
+                'resource.purchase_units.0.custom_id'
+            ) ?? data_get($event->payload, 'resource.custom_id'),
         ];
     }
 

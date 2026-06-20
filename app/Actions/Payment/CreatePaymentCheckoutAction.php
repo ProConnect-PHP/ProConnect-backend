@@ -13,6 +13,7 @@ use App\Support\ActivityLog\ActivityLogActorMode;
 use App\Support\ActivityLog\ActivityLogEvent;
 use App\Support\ActivityLog\ActivityLogger;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 final readonly class CreatePaymentCheckoutAction
@@ -132,6 +133,27 @@ final readonly class CreatePaymentCheckoutAction
             actor: $client,
             actingAs: ActivityLogActorMode::Client,
         );
+
+        if ($intent->provider === PaymentProvider::PayPal) {
+            Log::info('[PAYPAL CHECKOUT CREATED]', [
+                'payment_intent_id' => (string) $intent->id,
+                'booking_id' => $intent->booking_id,
+                'paypal_order_id' => $intent->provider_reference,
+                'paypal_capture_id' => null,
+                'provider_status' => data_get(
+                    $intent->metadata,
+                    'paypal_order_status'
+                ),
+                'paypal_custom_id' => data_get(
+                    $intent->metadata,
+                    'paypal_custom_id'
+                ),
+                'paypal_reference_id' => data_get(
+                    $intent->metadata,
+                    'paypal_reference_id'
+                ),
+            ]);
+        }
 
         return $intent;
     }

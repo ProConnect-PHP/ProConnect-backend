@@ -10,8 +10,9 @@ final class PayPalStatusMapper
     {
         return match (strtoupper((string) $status)) {
             'COMPLETED' => PaymentStatus::Succeeded,
+            'PENDING' => PaymentStatus::Pending,
             'VOIDED' => PaymentStatus::Cancelled,
-            'DECLINED', 'FAILED' => PaymentStatus::Rejected,
+            'DENIED', 'DECLINED', 'FAILED' => PaymentStatus::Rejected,
             'REFUNDED' => PaymentStatus::Refunded,
             'PARTIALLY_REFUNDED' => PaymentStatus::PartiallyRefunded,
             default => PaymentStatus::Pending,

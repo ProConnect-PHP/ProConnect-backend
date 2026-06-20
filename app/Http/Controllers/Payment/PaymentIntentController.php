@@ -10,6 +10,7 @@ use App\Http\Resources\Payment\PaymentIntentResource;
 use App\Models\Booking\Booking;
 use App\Models\Package\PackageProduct;
 use App\Models\Payment\PaymentIntent;
+use App\Services\Payment\PaymentIntentStatusPayload;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Gate;
 use Symfony\Component\HttpFoundation\Response;
@@ -51,11 +52,13 @@ class PaymentIntentController extends Controller
         return $this->response($paymentIntent);
     }
 
-    public function status(PaymentIntent $paymentIntent): JsonResponse
-    {
+    public function status(
+        PaymentIntent $paymentIntent,
+        PaymentIntentStatusPayload $statusPayload
+    ): JsonResponse {
         Gate::authorize('view', $paymentIntent);
 
-        return $this->response($paymentIntent);
+        return response()->json($statusPayload->make($paymentIntent));
     }
 
     private function response(PaymentIntent $paymentIntent): JsonResponse

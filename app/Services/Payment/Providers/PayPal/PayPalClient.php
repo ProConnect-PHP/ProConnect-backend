@@ -7,6 +7,7 @@ use App\Models\Payment\PaymentIntent;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 final class PayPalClient
@@ -71,34 +72,45 @@ final class PayPalClient
 
     public function captureOrder(string $orderId): array
     {
+        Log::info('[PAYPAL CAPTURE REQUEST]', [
+            'paypal_order_id' => $orderId,
+        ]);
+
         $response = $this->authenticatedRequest()
             ->withHeaders([
                 'PayPal-Request-Id' => 'capture-'.$orderId,
             ])
+            // PayPal Orders v2 expects a JSON object for a simple capture.
+            // Sending an empty object deliberately serializes to {} (not []).
             ->post('/v2/checkout/orders/'.$orderId.'/capture', (object) []);
 
+        $responseBody = $response->json();
+        $logContext = [
+            'paypal_order_id' => $orderId,
+            'paypal_http_status' => $response->status(),
+            'provider_status' => is_array($responseBody)
+                ? ($responseBody['status'] ?? null)
+                : null,
+            'debug_id' => is_array($responseBody)
+                ? ($responseBody['debug_id'] ?? null)
+                : $response->header('paypal-debug-id'),
+            'response_summary' => $this->responseSummary($responseBody),
+        ];
+
         if ($response->failed()) {
-            report(new ApiException(
-                error: 'PayPalCaptureFailedDebug',
-                message: 'PayPal capture failed with provider response.',
-                status: Response::HTTP_BAD_GATEWAY,
-                details: [
-                    'order_id' => $orderId,
-                    'paypal_http_status' => $response->status(),
-                    'paypal_response' => $response->json(),
-                    'paypal_raw_body' => $response->body(),
-                ],
-            ));
+            Log::warning('[PAYPAL CAPTURE RESPONSE]', $logContext);
 
             throw $this->providerException(
                 'PayPalCaptureFailed',
                 'No se pudo capturar el pago de PayPal.',
                 $response->status(),
-                $response->json()
+                $responseBody
             );
         }
 
-        return $response->json();
+        Log::info('[PAYPAL CAPTURE RESPONSE]', $logContext);
+
+        return is_array($responseBody) ? $responseBody : [];
     }
 
     public function verifyWebhookSignature(Request $request): bool
@@ -235,8 +247,25 @@ final class PayPalClient
             details: [
                 'provider_status' => $providerStatus,
                 'provider_error' => $providerError,
-                'provider_body' => $providerBody,
+                'provider_body' => $this->responseSummary($providerBody),
             ],
         );
+    }
+
+    private function responseSummary(mixed $providerBody): array|string|null
+    {
+        if (! is_array($providerBody)) {
+            return is_string($providerBody)
+                ? mb_substr($providerBody, 0, 500)
+                : null;
+        }
+
+        return array_filter([
+            'name' => $providerBody['name'] ?? null,
+            'message' => $providerBody['message'] ?? null,
+            'status' => $providerBody['status'] ?? null,
+            'debug_id' => $providerBody['debug_id'] ?? null,
+            'details' => data_get($providerBody, 'details.0.issue'),
+        ], static fn (mixed $value): bool => $value !== null && $value !== '');
     }
 }

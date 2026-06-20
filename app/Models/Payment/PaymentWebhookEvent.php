@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Model;
     'event_type',
     'resource_type',
     'resource_id',
+    'payment_intent_id',
     'signature_valid',
     'status',
     'payload',

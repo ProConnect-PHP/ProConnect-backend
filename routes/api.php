@@ -24,6 +24,7 @@ use App\Http\Controllers\Package\ProfessionalSoldPackageController;
 use App\Http\Controllers\Package\PublicPackageProductController;
 use App\Http\Controllers\Password\ResetPasswordController;
 use App\Http\Controllers\Payment\BookingPaymentIntentController;
+use App\Http\Controllers\Payment\PaymentCaptureController;
 use App\Http\Controllers\Payment\ClientPaymentController;
 use App\Http\Controllers\Payment\PaymentCheckoutController;
 use App\Http\Controllers\Payment\PaymentIntentController;
@@ -219,13 +220,17 @@ Route::prefix('v1')->group(function (): void {
         |--------------------------------------------------------------------------
         */
 
+        Route::middleware(['client-capable', 'verified.email', 'throttle:payment-status'])->group(function (): void {
+            Route::get('/payment-intents/{paymentIntent}/status', [PaymentIntentController::class, 'status']);
+        });
+
         Route::middleware(['client-capable', 'verified.email', 'throttle:payment-actions'])->group(function (): void {
             Route::post('/payment-intents', [PaymentIntentController::class, 'store']);
             Route::post('/bookings/{booking}/payment-intents', [BookingPaymentIntentController::class, 'store']);
 
             Route::get('/payment-intents/{paymentIntent}', [PaymentIntentController::class, 'show']);
-            Route::get('/payment-intents/{paymentIntent}/status', [PaymentIntentController::class, 'status']);
             Route::post('/payment-intents/{paymentIntent}/checkout', [PaymentCheckoutController::class, 'store']);
+            Route::post('/payment-intents/{paymentIntent}/capture', [PaymentCaptureController::class, 'store']);
             Route::post('/payment-intents/{paymentIntent}/simulate-success', [PaymentSimulationController::class, 'success']);
             Route::post('/payment-intents/{paymentIntent}/simulate-failure', [PaymentSimulationController::class, 'failure']);
 

@@ -9,6 +9,7 @@ use App\Events\Payment\PaymentFailed;
 use App\Models\Payment\PaymentIntent;
 use App\Support\ActivityLog\ActivityLogActorMode;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 final class MarkPaymentFailedAction
 {
@@ -51,6 +52,7 @@ final class MarkPaymentFailedAction
                     ...($intent->metadata ?? []),
                     ...$providerStatus->metadata,
                     'raw_provider_status' => $providerStatus->rawStatus,
+                    'provider_payment_id' => $providerStatus->providerPaymentId,
                 ],
             ]);
 
@@ -63,6 +65,19 @@ final class MarkPaymentFailedAction
 
             DB::afterCommit(function () use ($intent, $actingAs): void {
                 event(new PaymentFailed($intent, $actingAs));
+
+                Log::warning('[PAYMENT INTENT FAILED]', [
+                    'payment_intent_id' => (string) $intent->id,
+                    'booking_id' => $intent->booking_id,
+                    'paypal_order_id' => $intent->provider->value === 'paypal'
+                        ? $intent->provider_reference
+                        : null,
+                    'paypal_capture_id' => data_get(
+                        $intent->metadata,
+                        'paypal_capture_id'
+                    ),
+                    'provider_status' => $providerStatus->rawStatus,
+                ]);
             });
 
             return $intent;

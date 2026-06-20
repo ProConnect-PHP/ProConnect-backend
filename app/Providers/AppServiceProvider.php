@@ -144,6 +144,10 @@ class AppServiceProvider extends ServiceProvider
             fn (Request $request) => ApiRateLimit::byRole($request, 'payment_actions')
         );
         RateLimiter::for(
+            'payment-status',
+            fn (Request $request) => ApiRateLimit::byRole($request, 'payment_status')
+        );
+        RateLimiter::for(
             'payment-webhooks',
             fn (Request $request) => ApiRateLimit::byIp($request, 'payment_webhooks')
         );
