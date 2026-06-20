@@ -268,8 +268,27 @@ final class MercadoPagoClient
 
     public function searchPayments(array $filters): array
     {
-        return $this->request('GET', '/v1/payments/search', [
-            'query' => $filters,
-        ]);
+        $response = $this->request()->get('/v1/payments/search', $filters);
+
+        if ($response->failed()) {
+            Log::error('MercadoPago payment search failed', [
+                'filters' => $filters,
+                'provider_status' => $response->status(),
+                'provider_response' => $response->json(),
+                'provider_raw_body' => $response->body(),
+            ]);
+
+            throw $this->providerException(
+                'MercadoPagoPaymentSearchFailed',
+                'No se pudo buscar el pago de MercadoPago.',
+                $response->status(),
+                $response->json(),
+                $response->body(),
+            );
+        }
+
+        $payload = $response->json();
+
+        return is_array($payload) ? $payload : [];
     }
 }

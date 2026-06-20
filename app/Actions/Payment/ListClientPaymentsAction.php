@@ -339,7 +339,10 @@ final class ListClientPaymentsAction
             'pending' => 'Pendiente',
             'checkout_created' => 'Checkout creado',
             'processing', 'pending_capture' => 'Procesando',
-            'failed', 'rejected', 'denied' => 'Fallido',
+            'failed', 'rejected', 'denied' => strtolower($status) === 'rejected'
+                || strtolower((string) $providerStatus) === 'rejected'
+                ? 'Rechazado'
+                : 'Fallido',
             'cancelled' => 'Cancelado',
             'expired' => 'Expirado',
             'refunded', 'partially_refunded' => 'Reembolsado',
