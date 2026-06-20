@@ -13,9 +13,9 @@ use App\Models\Booking\Booking;
 use App\Models\Package\PackageProduct;
 use App\Models\Payment\PaymentIntent;
 use App\Services\Payment\PaymentIntentStatusPayload;
+use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Gate;
-use Request;
 use Symfony\Component\HttpFoundation\Response;
 
 class PaymentIntentController extends Controller
