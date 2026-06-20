@@ -13,8 +13,6 @@ final class PayPalStatusMapper
             'PENDING' => PaymentStatus::Pending,
             'VOIDED' => PaymentStatus::Cancelled,
             'DENIED', 'DECLINED', 'FAILED' => PaymentStatus::Rejected,
-            'REFUNDED' => PaymentStatus::Refunded,
-            'PARTIALLY_REFUNDED' => PaymentStatus::PartiallyRefunded,
             default => PaymentStatus::Pending,
         };
     }

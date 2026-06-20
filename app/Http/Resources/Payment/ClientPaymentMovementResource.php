@@ -48,7 +48,6 @@ class ClientPaymentMovementResource extends JsonResource
             'failed_at' => $this->failedAt?->toDateTimeString(),
             'cancelled_at' => $this->cancelledAt?->toDateTimeString(),
             'expires_at' => $this->expiresAt?->toDateTimeString(),
-            'refunded_at' => $this->refundedAt?->toDateTimeString(),
         ];
     }
 }

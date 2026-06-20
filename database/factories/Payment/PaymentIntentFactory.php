@@ -114,6 +114,15 @@ class PaymentIntentFactory extends Factory
         ]);
     }
 
+    public function rejected(): static
+    {
+        return $this->state(fn () => [
+            'status' => PaymentIntentStatus::Rejected,
+            'failed_at' => now(),
+            'failure_reason' => 'Pago simulado rechazado.',
+        ]);
+    }
+
     public function expired(): static
     {
         return $this->state(fn () => [

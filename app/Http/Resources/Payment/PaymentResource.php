@@ -27,7 +27,6 @@ class PaymentResource extends JsonResource
             'metadata' => $this->metadata,
             'paid_at' => $this->paid_at?->toDateTimeString(),
             'failed_at' => $this->failed_at?->toDateTimeString(),
-            'refunded_at' => $this->refunded_at?->toDateTimeString(),
             'failure_reason' => $this->failure_reason,
             'booking' => $this->whenLoaded('booking', function () {
                 return [

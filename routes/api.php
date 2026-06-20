@@ -211,7 +211,7 @@ Route::prefix('v1')->group(function (): void {
 
             Route::get('/payments/my', [ClientPaymentController::class, 'index']);
             Route::get('/me/payments', [MyPaymentController::class, 'index']);
-            Route::get('/me/payments/{payment}', [MyPaymentController::class, 'show']);
+            Route::get('/me/payments/{id}', [MyPaymentController::class, 'show']);
 
             Route::get('/client-packages/my', [MyClientPackageController::class, 'index']);
             Route::get('/client-packages/{clientPackage}', [MyClientPackageController::class, 'show']);
