@@ -108,14 +108,24 @@ final readonly class CreatePaymentIntentAction
             ->latest()
             ->first();
 
-        if ($existingIntent instanceof PaymentIntent && ! $existingIntent->isExpired()) {
-            return $existingIntent->load(['booking', 'packageProduct', 'payment']);
-        }
-
         if ($existingIntent instanceof PaymentIntent) {
-            $existingIntent->update(['status' => PaymentIntentStatus::Expired]);
+            if ($existingIntent->isExpired()) {
+                $this->expireIntent(
+                    $existingIntent,
+                    'Intento de pago expirado automáticamente.'
+                );
+            } elseif ($existingIntent->provider === $provider) {
+                return $existingIntent->load(['booking', 'packageProduct', 'payment']);
+            } else {
+                $this->expireIntent(
+                    $existingIntent,
+                    sprintf(
+                        'Reemplazado por un nuevo intento de pago con proveedor %s.',
+                        $provider->value
+                    )
+                );
+            }
         }
-
         if ($booking->paymentIntents()
             ->where('status', PaymentIntentStatus::Succeeded->value)
             ->exists()) {
@@ -185,7 +195,6 @@ final readonly class CreatePaymentIntentAction
                 status: Response::HTTP_CONFLICT,
             );
         }
-
         $existingIntent = PaymentIntent::query()
             ->where('package_product_id', $packageProduct->id)
             ->where('client_id', $client->id)
@@ -193,12 +202,23 @@ final readonly class CreatePaymentIntentAction
             ->latest()
             ->first();
 
-        if ($existingIntent instanceof PaymentIntent && ! $existingIntent->isExpired()) {
-            return $existingIntent->load(['booking', 'packageProduct', 'payment']);
-        }
-
         if ($existingIntent instanceof PaymentIntent) {
-            $existingIntent->update(['status' => PaymentIntentStatus::Expired]);
+            if ($existingIntent->isExpired()) {
+                $this->expireIntent(
+                    $existingIntent,
+                    'Intento de pago expirado automáticamente.'
+                );
+            } elseif ($existingIntent->provider === $provider) {
+                return $existingIntent->load(['booking', 'packageProduct', 'payment']);
+            } else {
+                $this->expireIntent(
+                    $existingIntent,
+                    sprintf(
+                        'Reemplazado por un nuevo intento de pago con proveedor %s.',
+                        $provider->value
+                    )
+                );
+            }
         }
 
         return PaymentIntent::create([

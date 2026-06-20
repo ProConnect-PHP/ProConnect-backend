@@ -128,6 +128,13 @@ final readonly class PayPalPaymentProvider implements IPaymentProviderGateway
             ?? data_get($purchaseUnit, 'reference_id');
         $captureId = $isCaptureEvent ? data_get($resource, 'id') : null;
         $rawStatus = (string) (data_get($resource, 'status') ?? 'unknown');
+        $eventType = strtoupper((string) $webhook->eventType);
+
+        if ($eventType === 'CHECKOUT.ORDER.APPROVED') {
+            if (is_scalar($paypalOrderId) && (string) $paypalOrderId !== '') {
+                return $this->captureOrder((string) $paypalOrderId);
+            }
+        }
 
         return new ProviderPaymentStatus(
             providerReference: (string) ($paypalOrderId ?? $webhook->resourceId),

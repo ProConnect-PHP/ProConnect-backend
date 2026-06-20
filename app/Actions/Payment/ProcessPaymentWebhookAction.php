@@ -541,11 +541,7 @@ final readonly class ProcessPaymentWebhookAction
                 $providerStatus,
                 ActivityLogActorMode::System,
             ),
-            PaymentStatus::Refunded,
-            PaymentStatus::PartiallyRefunded => $this->markRefunded(
-                $intent,
-                $providerStatus
-            ),
+
             default => $this->markProcessing($intent, $providerStatus),
         };
 
@@ -668,9 +664,7 @@ final readonly class ProcessPaymentWebhookAction
     ): void {
         if (! in_array($providerStatus->status, [
             PaymentStatus::Succeeded,
-            PaymentStatus::Approved,
-            PaymentStatus::Refunded,
-            PaymentStatus::PartiallyRefunded,
+            PaymentStatus::Approved
         ], true)) {
             return;
         }
@@ -787,45 +781,6 @@ final readonly class ProcessPaymentWebhookAction
                 'webhook_event_id' => (string) $event->id,
             ],
         );
-    }
-
-    private function markRefunded(
-        PaymentIntent $intent,
-        ProviderPaymentStatus $providerStatus
-    ): void {
-        DB::transaction(function () use ($intent, $providerStatus): void {
-            $payment = Payment::query()
-                ->where('payment_intent_id', $intent->id)
-                ->lockForUpdate()
-                ->first();
-
-            if (! $payment) {
-                return;
-            }
-
-            $payment->update([
-                'status' => $providerStatus->status,
-                'raw_provider_status' => $providerStatus->rawStatus,
-                'refunded_at' => now(),
-                'metadata' => [
-                    ...($payment->metadata ?? []),
-                    ...$providerStatus->metadata,
-                ],
-            ]);
-
-            $this->activityLogger->record(
-                event: ActivityLogEvent::PaymentRefunded,
-                entityType: 'payment',
-                entityId: $payment->id,
-                entityOwnerId: $payment->professional_id,
-                metadata: $this->intentMetadata(
-                    $intent,
-                    $providerStatus->rawStatus,
-                    $payment
-                ),
-                actingAs: ActivityLogActorMode::System,
-            );
-        });
     }
 
     private function markInvalidSignature(
