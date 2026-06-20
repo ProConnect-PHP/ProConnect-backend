@@ -19,45 +19,52 @@ final class ListMyPaymentsAction
     ) {}
 
     public function __invoke(
-        User $client,
-        int $perPage = 10,
-        int $page = 1,
-    ): LengthAwarePaginator {
-        $payments = $this->paymentsFor($client);
-        $succeededPayables = $this->succeededPayablesFor($client);
-        $items = $payments
-            ->map(fn (Payment $payment): PaymentHistoryItemData => $this->paymentItem($payment))
-            ->merge(
-                $this->relevantIntentsFor($client)
-                    ->map(fn (PaymentIntent $intent): PaymentHistoryItemData => $this->intentItem(
-                        $intent,
-                        $succeededPayables,
-                    ))
-            )
-            ->sort(function (PaymentHistoryItemData $left, PaymentHistoryItemData $right): int {
-                $dateComparison = ($right->createdAt?->getTimestamp() ?? 0)
-                    <=> ($left->createdAt?->getTimestamp() ?? 0);
+    User $client,
+    int $perPage = 10,
+    int $page = 1,
+): LengthAwarePaginator {
+    $payments = $this->paymentsFor($client);
+    $succeededPayables = $this->succeededPayablesFor($client);
 
-                return $dateComparison !== 0
-                    ? $dateComparison
-                    : strcmp($right->id, $left->id);
-            })
-            ->values();
+    $paymentItems = $payments
+        ->map(fn (Payment $payment): PaymentHistoryItemData => $this->paymentItem($payment))
+        ->values()
+        ->toBase();
 
-        $perPage = min(max($perPage, 1), 50);
-        $page = max($page, 1);
+    $intentItems = $this->relevantIntentsFor($client)
+        ->map(fn (PaymentIntent $intent): PaymentHistoryItemData => $this->intentItem(
+            $intent,
+            $succeededPayables,
+        ))
+        ->values()
+        ->toBase();
 
-        return new LengthAwarePaginator(
-            $items->forPage($page, $perPage)->values(),
-            $items->count(),
-            $perPage,
-            $page,
-            [
-                'path' => LengthAwarePaginator::resolveCurrentPath(),
-                'query' => request()->query(),
-            ],
-        );
-    }
+    $items = $paymentItems
+        ->merge($intentItems)
+        ->sort(function (PaymentHistoryItemData $left, PaymentHistoryItemData $right): int {
+            $dateComparison = ($right->createdAt?->getTimestamp() ?? 0)
+                <=> ($left->createdAt?->getTimestamp() ?? 0);
+
+            return $dateComparison !== 0
+                ? $dateComparison
+                : strcmp($right->id, $left->id);
+        })
+        ->values();
+
+    $perPage = min(max($perPage, 1), 50);
+    $page = max($page, 1);
+
+    return new LengthAwarePaginator(
+        $items->forPage($page, $perPage)->values(),
+        $items->count(),
+        $perPage,
+        $page,
+        [
+            'path' => LengthAwarePaginator::resolveCurrentPath(),
+            'query' => request()->query(),
+        ],
+    );
+}
 
     public function find(User $client, string $historyId): ?PaymentHistoryItemData
     {
