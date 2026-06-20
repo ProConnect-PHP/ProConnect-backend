@@ -291,6 +291,22 @@ final readonly class CreatePaymentIntentAction
         );
     }
 
+    private function expireIntent(PaymentIntent $intent, string $reason): void
+    {
+        $metadata = is_array($intent->metadata) ? $intent->metadata : [];
+
+        $intent->forceFill([
+            'status' => PaymentIntentStatus::Expired,
+            'expires_at' => now(),
+            'failure_reason' => $reason,
+            'metadata' => $this->sanitizer->sanitize([
+                ...$metadata,
+                'expiration_reason' => $reason,
+                'expired_by_system_at' => now()->toISOString(),
+            ]),
+        ])->save();
+    }
+
     private function activityMetadata(PaymentIntent $intent): array
     {
         return [
