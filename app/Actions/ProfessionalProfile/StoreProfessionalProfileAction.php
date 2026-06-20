@@ -48,6 +48,7 @@ class StoreProfessionalProfileAction
             $profile = ProfessionalProfile::create([
                 'user_id' => $user->id,
                 'bio' => $request->validated('bio'),
+                'is_verified' => true
             ]);
 
             if ($user->role === UserRole::Client) {
