@@ -22,4 +22,9 @@ class PaymentIntentPolicy
     {
         return $intent->client_id === $user->id;
     }
+
+    public function capture(User $user, PaymentIntent $intent): bool
+    {
+        return $intent->client_id === $user->id;
+    }
 }

@@ -20,6 +20,7 @@ use App\Models\Payment\PaymentIntent;
 use App\Support\ActivityLog\ActivityLogActorMode;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 final readonly class MarkPaymentSucceededAction
@@ -77,6 +78,12 @@ final readonly class MarkPaymentSucceededAction
                 'failed_at' => null,
                 'cancelled_at' => null,
                 'failure_reason' => null,
+                'metadata' => [
+                    ...($intent->metadata ?? []),
+                    ...$providerStatus->metadata,
+                    'raw_provider_status' => $providerStatus->rawStatus,
+                    'provider_payment_id' => $providerStatus->providerPaymentId,
+                ],
             ]);
 
             $payment = Payment::query()->updateOrCreate(
@@ -129,6 +136,18 @@ final readonly class MarkPaymentSucceededAction
 
             DB::afterCommit(function () use ($payment, $actingAs): void {
                 event(new PaymentSucceeded($payment, $actingAs));
+
+                Log::info('[PAYMENT INTENT PAID]', [
+                    'payment_intent_id' => (string) $payment->payment_intent_id,
+                    'booking_id' => $payment->booking_id,
+                    'paypal_order_id' => $payment->provider->value === 'paypal'
+                        ? $payment->provider_reference
+                        : null,
+                    'paypal_capture_id' => $payment->provider->value === 'paypal'
+                        ? $payment->provider_payment_id
+                        : null,
+                    'provider_status' => $payment->raw_provider_status,
+                ]);
             });
 
             return $payment;

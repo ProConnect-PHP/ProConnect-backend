@@ -33,6 +33,12 @@ return [
             'professional' => 10,
             'admin' => 3,
         ],
+        'payment_status' => [
+            'guest' => 3,
+            'client' => 30,
+            'professional' => 30,
+            'admin' => 10,
+        ],
         'payment_webhooks' => 120,
         'video_join' => [
             'guest' => 3,
