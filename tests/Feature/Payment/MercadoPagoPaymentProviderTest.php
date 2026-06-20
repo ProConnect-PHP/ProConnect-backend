@@ -16,6 +16,7 @@ use App\Models\Payment\PaymentWebhookEvent;
 use App\Models\Service\Service;
 use App\Models\User\ProfessionalProfile;
 use App\Models\User\User;
+use App\Services\Payment\Providers\MercadoPago\MercadoPagoClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
@@ -25,6 +26,95 @@ use Tests\TestCase;
 class MercadoPagoPaymentProviderTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_search_payments_executes_the_request_and_returns_json(): void
+    {
+        Http::preventStrayRequests();
+        $this->configureMercadoPago();
+        Http::fake([
+            'api.mercadopago.com/v1/payments/search*' => Http::response([
+                'results' => [['id' => 'mp_payment_search_123']],
+            ]),
+        ]);
+
+        $payload = app(MercadoPagoClient::class)->searchPayments([
+            'external_reference' => 'payment-intent-123',
+        ]);
+
+        $this->assertSame([
+            'results' => [['id' => 'mp_payment_search_123']],
+        ], $payload);
+        Http::assertSent(
+            fn ($request): bool => $request->url()
+                === 'https://api.mercadopago.com/v1/payments/search?external_reference=payment-intent-123'
+        );
+    }
+
+    public function test_manual_sync_marks_a_rejected_mercadopago_payment_as_failed(): void
+    {
+        Http::preventStrayRequests();
+        $this->configureMercadoPago();
+        [$client, $booking] = $this->confirmedBookingScenario();
+        $intent = PaymentIntent::factory()
+            ->forBooking($booking)
+            ->create([
+                'provider' => PaymentProvider::MercadoPago,
+                'provider_reference' => 'mp_pref_rejected_sync',
+                'status' => PaymentIntentStatus::CheckoutCreated,
+            ]);
+        Http::fake([
+            'api.mercadopago.com/v1/payments/search*' => Http::response([
+                'results' => [[
+                    'id' => 'mp_payment_rejected_sync',
+                    'status' => 'rejected',
+                    'status_detail' => 'cc_rejected_other_reason',
+                    'external_reference' => $intent->id,
+                    'transaction_amount' => 1600,
+                    'currency_id' => 'UYU',
+                ]],
+            ]),
+        ]);
+
+        $this
+            ->withHeaders($this->authHeaders($client))
+            ->postJson("/api/v1/payment-intents/{$intent->id}/sync-provider-status")
+            ->assertOk()
+            ->assertJsonPath('payment_intent.id', $intent->id)
+            ->assertJsonPath('payment_intent.status', PaymentIntentStatus::Failed->value)
+            ->assertJsonPath(
+                'payment_intent.metadata.provider_payment_id',
+                'mp_payment_rejected_sync'
+            )
+            ->assertJsonPath(
+                'payment_intent.metadata.raw_provider_status',
+                PaymentStatus::Rejected->value
+            )
+            ->assertJsonPath(
+                'payment_intent.metadata.status_detail',
+                'cc_rejected_other_reason'
+            )
+            ->assertJsonPath(
+                'payment_intent.failure_reason',
+                'El proveedor rechazo el pago.'
+            )
+            ->assertJsonPath('payment', null);
+
+        $this->assertDatabaseHas('payment_intents', [
+            'id' => $intent->id,
+            'status' => PaymentIntentStatus::Failed->value,
+        ]);
+        $this->assertDatabaseCount('payments', 0);
+
+        $this
+            ->withHeaders($this->authHeaders($client))
+            ->getJson('/api/v1/payments/my')
+            ->assertOk()
+            ->assertJsonPath('payments.0.id', $intent->id)
+            ->assertJsonPath('payments.0.kind', 'payment_intent')
+            ->assertJsonPath('payments.0.status', PaymentIntentStatus::Failed->value)
+            ->assertJsonPath('payments.0.display_status', 'Rechazado')
+            ->assertJsonPath('payments.0.is_successful', false);
+    }
 
     public function test_it_creates_mercadopago_checkout_with_http_fake(): void
     {

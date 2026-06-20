@@ -336,11 +336,16 @@ final readonly class MercadoPagoPaymentProvider implements IPaymentProviderGatew
                 ? (string) $payment['external_reference']
                 : null,
             paidAt: $payment['date_approved'] ?? $payment['date_created'] ?? null,
-            amount: $payment['transaction_amount'] ?? null,
-            currency: $payment['currency_id'] ?? null,
+            amount: isset($payment['transaction_amount'])
+                ? (string) $payment['transaction_amount']
+                : null,
+            currency: isset($payment['currency_id'])
+                ? (string) $payment['currency_id']
+                : null,
             metadata: [
                 'mercadopago_payment_id' => $payment['id'] ?? null,
                 'mercadopago_status' => $payment['status'] ?? null,
+                'status_detail' => $payment['status_detail'] ?? null,
                 'mercadopago_status_detail' => $payment['status_detail'] ?? null,
                 'mercadopago_operation_type' => $payment['operation_type'] ?? null,
                 'mercadopago_collector_id' => $payment['collector_id'] ?? null,
