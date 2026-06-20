@@ -17,13 +17,12 @@ class MyPaymentApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_client_lists_only_their_real_payments(): void
+    public function test_client_lists_successful_payments_as_paid_history_items(): void
     {
         $client = User::factory()->create();
         $otherClient = User::factory()->create();
         [$payment, $booking] = $this->paymentFor($client);
         [$otherPayment] = $this->paymentFor($otherClient);
-        PaymentIntent::factory()->forBooking($booking)->failed()->create();
 
         $response = $this
             ->withHeaders($this->authHeaders($client))
@@ -32,27 +31,216 @@ class MyPaymentApiTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $payment->id)
+            ->assertJsonPath('data.0.id', 'payment:'.$payment->id)
+            ->assertJsonPath('data.0.source', 'payment')
+            ->assertJsonPath('data.0.payment_id', $payment->id)
             ->assertJsonPath('data.0.payment_intent_id', $payment->payment_intent_id)
+            ->assertJsonPath('data.0.status', 'succeeded')
+            ->assertJsonPath('data.0.display_status', 'paid')
             ->assertJsonPath('data.0.booking.id', $booking->id)
             ->assertJsonPath('meta.total', 1);
 
-        $this->assertNotSame($otherPayment->id, $response->json('data.0.id'));
+        $this->assertNotSame('payment:'.$otherPayment->id, $response->json('data.0.id'));
     }
 
-    public function test_client_cannot_view_another_clients_payment(): void
+    public function test_client_lists_rejected_intent_without_payment(): void
     {
         $client = User::factory()->create();
-        [$payment] = $this->paymentFor(User::factory()->create());
+        $booking = $this->bookingFor($client, BookingStatus::Confirmed);
+        $intent = PaymentIntent::factory()
+            ->forBooking($booking)
+            ->rejected()
+            ->create(['provider_reference' => 'mp_rejected_123']);
 
         $this
             ->withHeaders($this->authHeaders($client))
-            ->getJson("/api/v1/me/payments/{$payment->id}")
-            ->assertForbidden()
-            ->assertJsonPath('error.type', 'Forbidden');
+            ->getJson('/api/v1/me/payments')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', 'intent:'.$intent->id)
+            ->assertJsonPath('data.0.source', 'payment_intent')
+            ->assertJsonPath('data.0.payment_id', null)
+            ->assertJsonPath('data.0.payment_intent_id', $intent->id)
+            ->assertJsonPath('data.0.status', 'rejected')
+            ->assertJsonPath('data.0.display_status', 'rejected')
+            ->assertJsonPath('data.0.can_retry', true);
     }
 
-    public function test_client_can_view_payment_detail_with_related_attempts(): void
+    public function test_client_lists_checkout_created_intent_as_not_confirmed(): void
+    {
+        $client = User::factory()->create();
+        $booking = $this->bookingFor($client, BookingStatus::Confirmed);
+        $intent = PaymentIntent::factory()
+            ->forBooking($booking)
+            ->create([
+                'status' => PaymentIntentStatus::CheckoutCreated,
+                'provider_reference' => 'mp_checkout_123',
+                'checkout_url' => 'https://checkout.example.test/mp_checkout_123',
+                'failure_reason' => null,
+            ]);
+
+        $this
+            ->withHeaders($this->authHeaders($client))
+            ->getJson('/api/v1/me/payments')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', 'intent:'.$intent->id)
+            ->assertJsonPath('data.0.status', 'checkout_created')
+            ->assertJsonPath('data.0.display_status', 'not_confirmed')
+            ->assertJsonPath(
+                'data.0.failure_reason',
+                'No encontramos un pago asociado a este intento.'
+            )
+            ->assertJsonPath('data.0.can_retry', true);
+    }
+
+    public function test_client_does_not_list_internal_pending_intent_without_provider_evidence(): void
+    {
+        $client = User::factory()->create();
+        $booking = $this->bookingFor($client, BookingStatus::Confirmed);
+
+        PaymentIntent::factory()
+            ->forBooking($booking)
+            ->pending()
+            ->create([
+                'provider_reference' => null,
+                'checkout_url' => null,
+                'metadata' => null,
+            ]);
+
+        $this
+            ->withHeaders($this->authHeaders($client))
+            ->getJson('/api/v1/me/payments')
+            ->assertOk()
+            ->assertJsonCount(0, 'data')
+            ->assertJsonPath('meta.total', 0);
+    }
+
+    public function test_client_does_not_duplicate_an_intent_that_already_has_a_payment(): void
+    {
+        $client = User::factory()->create();
+        [$payment] = $this->paymentFor($client);
+
+        $this
+            ->withHeaders($this->authHeaders($client))
+            ->getJson('/api/v1/me/payments')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', 'payment:'.$payment->id)
+            ->assertJsonPath('data.0.source', 'payment')
+            ->assertJsonPath('meta.total', 1);
+    }
+
+    public function test_cancelled_booking_history_item_cannot_be_retried(): void
+    {
+        $client = User::factory()->create();
+        $booking = $this->bookingFor($client, BookingStatus::Cancelled);
+        $intent = PaymentIntent::factory()
+            ->forBooking($booking)
+            ->failed()
+            ->create(['provider_reference' => 'mp_failed_cancelled_booking']);
+
+        $this
+            ->withHeaders($this->authHeaders($client))
+            ->getJson('/api/v1/me/payments')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', 'intent:'.$intent->id)
+            ->assertJsonPath('data.0.can_retry', false);
+    }
+
+    public function test_failed_intent_for_payable_booking_can_be_retried(): void
+    {
+        $client = User::factory()->create();
+        $booking = $this->bookingFor($client, BookingStatus::Confirmed);
+        $intent = PaymentIntent::factory()
+            ->forBooking($booking)
+            ->failed()
+            ->create(['provider_reference' => 'mp_failed_payable_booking']);
+
+        $this
+            ->withHeaders($this->authHeaders($client))
+            ->getJson('/api/v1/me/payments')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', 'intent:'.$intent->id)
+            ->assertJsonPath('data.0.status', 'failed')
+            ->assertJsonPath('data.0.can_retry', true);
+    }
+
+    public function test_intent_cannot_be_retried_when_its_payable_already_has_a_successful_payment(): void
+    {
+        $client = User::factory()->create();
+        $booking = $this->bookingFor($client, BookingStatus::Confirmed);
+        $failedIntent = PaymentIntent::factory()
+            ->forBooking($booking)
+            ->failed()
+            ->create(['provider_reference' => 'mp_failed_before_success']);
+        $successfulIntent = PaymentIntent::factory()
+            ->forBooking($booking)
+            ->succeeded()
+            ->create();
+
+        Payment::factory()
+            ->forPaymentIntent($successfulIntent)
+            ->succeeded()
+            ->create();
+
+        $this
+            ->withHeaders($this->authHeaders($client))
+            ->getJson('/api/v1/me/payments/intent:'.$failedIntent->id)
+            ->assertOk()
+            ->assertJsonPath('item.can_retry', false);
+    }
+
+    public function test_history_is_ordered_by_created_at_descending(): void
+    {
+        $client = User::factory()->create();
+        $booking = $this->bookingFor($client, BookingStatus::Confirmed);
+        $olderIntent = PaymentIntent::factory()
+            ->forBooking($booking)
+            ->failed()
+            ->create([
+                'provider_reference' => 'mp_older_attempt',
+                'created_at' => now()->subHour(),
+            ]);
+        $newerIntent = PaymentIntent::factory()
+            ->forBooking($booking)
+            ->create([
+                'status' => PaymentIntentStatus::CheckoutCreated,
+                'provider_reference' => 'mp_newer_attempt',
+                'checkout_url' => 'https://checkout.example.test/mp_newer_attempt',
+                'created_at' => now(),
+            ]);
+
+        $this
+            ->withHeaders($this->authHeaders($client))
+            ->getJson('/api/v1/me/payments')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', 'intent:'.$newerIntent->id)
+            ->assertJsonPath('data.1.id', 'intent:'.$olderIntent->id);
+    }
+
+    public function test_client_cannot_see_another_clients_history_items(): void
+    {
+        $client = User::factory()->create();
+        $otherClient = User::factory()->create();
+        $otherBooking = $this->bookingFor($otherClient, BookingStatus::Confirmed);
+        $otherIntent = PaymentIntent::factory()
+            ->forBooking($otherBooking)
+            ->failed()
+            ->create(['provider_reference' => 'mp_other_client']);
+
+        $this
+            ->withHeaders($this->authHeaders($client))
+            ->getJson('/api/v1/me/payments')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this
+            ->withHeaders($this->authHeaders($client))
+            ->getJson('/api/v1/me/payments/intent:'.$otherIntent->id)
+            ->assertNotFound();
+    }
+
+    public function test_client_can_view_payment_history_detail_with_related_attempts(): void
     {
         $client = User::factory()->create();
         [$payment, $booking, $successfulIntent] = $this->paymentFor($client);
@@ -67,14 +255,41 @@ class MyPaymentApiTest extends TestCase
 
         $this
             ->withHeaders($this->authHeaders($client))
-            ->getJson("/api/v1/me/payments/{$payment->id}")
+            ->getJson('/api/v1/me/payments/payment:'.$payment->id)
             ->assertOk()
-            ->assertJsonPath('payment.id', $payment->id)
+            ->assertJsonPath('item.id', 'payment:'.$payment->id)
+            ->assertJsonPath('item.source', 'payment')
+            ->assertJsonPath('item.payment_id', $payment->id)
             ->assertJsonPath('booking.id', $booking->id)
-            ->assertJsonPath('successful_intent.id', $successfulIntent->id)
             ->assertJsonCount(3, 'related_attempts')
             ->assertJsonPath('related_attempts.0.id', $latestAttempt->id)
+            ->assertJsonPath('related_attempts.1.id', $successfulIntent->id)
             ->assertJsonPath('related_attempts.2.id', $olderAttempt->id);
+    }
+
+    public function test_client_can_view_intent_history_detail_without_payment(): void
+    {
+        $client = User::factory()->create();
+        $booking = $this->bookingFor($client, BookingStatus::Confirmed);
+        $intent = PaymentIntent::factory()
+            ->forBooking($booking)
+            ->create([
+                'status' => PaymentIntentStatus::CheckoutCreated,
+                'provider_reference' => 'mp_detail_without_payment',
+                'checkout_url' => 'https://checkout.example.test/mp_detail_without_payment',
+            ]);
+
+        $this
+            ->withHeaders($this->authHeaders($client))
+            ->getJson('/api/v1/me/payments/intent:'.$intent->id)
+            ->assertOk()
+            ->assertJsonPath('item.id', 'intent:'.$intent->id)
+            ->assertJsonPath('item.source', 'payment_intent')
+            ->assertJsonPath('item.payment_id', null)
+            ->assertJsonPath('item.payment_intent_id', $intent->id)
+            ->assertJsonPath('item.display_status', 'not_confirmed')
+            ->assertJsonPath('booking.id', $booking->id)
+            ->assertJsonPath('related_attempts.0.id', $intent->id);
     }
 
     public function test_cancelled_booking_cannot_create_a_payment_intent(): void

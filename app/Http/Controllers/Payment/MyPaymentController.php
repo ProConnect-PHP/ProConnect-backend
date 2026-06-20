@@ -4,14 +4,10 @@ namespace App\Http\Controllers\Payment;
 
 use App\Actions\Payment\ListMyPaymentsAction;
 use App\Http\Controllers\Controller;
-use App\Http\Resources\Payment\PaymentDetailResource;
-use App\Http\Resources\Payment\PaymentResource;
-use App\Models\Payment\Payment;
-use App\Models\Payment\PaymentIntent;
+use App\Http\Resources\Payment\PaymentHistoryDetailResource;
+use App\Http\Resources\Payment\PaymentHistoryItemResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Gate;
 
 class MyPaymentController extends Controller
 {
@@ -30,42 +26,23 @@ class MyPaymentController extends Controller
             page: $request->integer('page', 1),
         );
 
-        return PaymentResource::collection($payments)->response();
+        return PaymentHistoryItemResource::collection($payments)->response();
     }
 
-    public function show(Request $request, Payment $payment): JsonResponse
-    {
-        Gate::authorize('viewAsClient', $payment);
+    public function show(
+        Request $request,
+        string $id,
+        ListMyPaymentsAction $action,
+    ): JsonResponse {
+        $client = $request->user('user_jwt');
+        $item = $action->find($client, $id);
 
-        $payment->load(['booking', 'packageProduct', 'clientPackage', 'intent']);
+        abort_unless($item !== null, 404);
 
-        $relatedAttempts = $this->relatedAttemptsFor($payment, $request);
+        $relatedAttempts = $action->relatedAttemptsFor($client, $item);
 
         return response()->json(
-            (new PaymentDetailResource($payment, $relatedAttempts))->resolve($request)
+            (new PaymentHistoryDetailResource($item, $relatedAttempts))->resolve($request)
         );
-    }
-
-    /** @return Collection<int, PaymentIntent> */
-    private function relatedAttemptsFor(Payment $payment, Request $request): Collection
-    {
-        $query = PaymentIntent::query()
-            ->where('client_id', $request->user('user_jwt')->id);
-
-        if ($payment->booking_id !== null) {
-            return $query
-                ->where('booking_id', $payment->booking_id)
-                ->latest('created_at')
-                ->get();
-        }
-
-        if ($payment->package_product_id !== null) {
-            return $query
-                ->where('package_product_id', $payment->package_product_id)
-                ->latest('created_at')
-                ->get();
-        }
-
-        return collect();
     }
 }

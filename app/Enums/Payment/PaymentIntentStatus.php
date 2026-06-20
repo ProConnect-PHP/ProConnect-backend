@@ -9,6 +9,7 @@ enum PaymentIntentStatus: string
     case Processing = 'processing';
     case Succeeded = 'succeeded';
     case Failed = 'failed';
+    case Rejected = 'rejected';
     case Cancelled = 'cancelled';
     case Expired = 'expired';
 }
