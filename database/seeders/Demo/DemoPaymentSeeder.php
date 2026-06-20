@@ -111,7 +111,6 @@ class DemoPaymentSeeder extends Seeder
                 'metadata' => $intent->metadata,
                 'paid_at' => $paidAt,
                 'failed_at' => null,
-                'refunded_at' => null,
                 'failure_reason' => null,
             ]
         );

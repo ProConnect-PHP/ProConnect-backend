@@ -49,6 +49,5 @@ final readonly class ClientPaymentMovementData
         public ?CarbonInterface $failedAt,
         public ?CarbonInterface $cancelledAt,
         public ?CarbonInterface $expiresAt,
-        public ?CarbonInterface $refundedAt,
     ) {}
 }

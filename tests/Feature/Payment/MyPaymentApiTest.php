@@ -392,4 +392,17 @@ class MyPaymentApiTest extends TestCase
             'Accept' => 'application/json',
         ];
     }
+
+    private function enumValue(mixed $value): ?string
+    {
+        if ($value instanceof \BackedEnum) {
+            return (string) $value->value;
+        }
+
+        if ($value === null) {
+            return null;
+        }
+
+        return (string) $value;
+    }
 }

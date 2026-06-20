@@ -12,7 +12,6 @@ final class MercadoPagoStatusMapper
             'approved' => PaymentStatus::Succeeded,
             'rejected' => PaymentStatus::Rejected,
             'cancelled' => PaymentStatus::Cancelled,
-            'refunded', 'charged_back' => PaymentStatus::Refunded,
             default => PaymentStatus::Pending,
         };
     }

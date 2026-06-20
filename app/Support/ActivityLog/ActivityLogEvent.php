@@ -48,7 +48,6 @@ enum ActivityLogEvent: string
     case PaymentApproved = 'payment.approved';
     case PaymentRejected = 'payment.rejected';
     case PaymentFailed = 'payment.failed';
-    case PaymentRefunded = 'payment.refunded';
     case PaymentWebhookReceived = 'payment.webhook_received';
     case PaymentWebhookSignatureValid = 'payment.webhook_signature_valid';
     case PaymentWebhookSignatureInvalid = 'payment.webhook_signature_invalid';

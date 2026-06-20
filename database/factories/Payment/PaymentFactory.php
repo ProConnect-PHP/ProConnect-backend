@@ -37,7 +37,6 @@ class PaymentFactory extends Factory
             'metadata' => null,
             'paid_at' => now(),
             'failed_at' => null,
-            'refunded_at' => null,
             'failure_reason' => null,
         ];
     }
@@ -88,13 +87,7 @@ class PaymentFactory extends Factory
         ]);
     }
 
-    public function refunded(): static
-    {
-        return $this->state(fn () => [
-            'status' => PaymentStatus::Refunded,
-            'refunded_at' => now(),
-        ]);
-    }
+
 
     public function simulator(): static
     {

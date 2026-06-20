@@ -124,7 +124,7 @@ final class ListMyPaymentsAction
     private function paymentsFor(User $client): Collection
     {
         return Payment::query()
-            ->with(['booking', 'packageProduct'])
+            ->with(['booking', 'packageProduct', 'clientPackage'])
             ->where('client_id', $client->id)
             ->whereIn('status', $this->realPaymentStatuses())
             ->get();
@@ -307,7 +307,6 @@ final class ListMyPaymentsAction
     {
         return [
             PaymentStatus::Succeeded->value,
-            PaymentStatus::Refunded->value,
             PaymentStatus::Cancelled->value,
         ];
     }
@@ -329,7 +328,6 @@ final class ListMyPaymentsAction
     {
         return match ($status) {
             PaymentStatus::Succeeded->value => 'paid',
-            PaymentStatus::Refunded->value => 'refunded',
             PaymentStatus::Cancelled->value,
             PaymentIntentStatus::Cancelled->value => 'cancelled',
             PaymentIntentStatus::Rejected->value => 'rejected',

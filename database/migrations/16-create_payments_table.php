@@ -40,7 +40,6 @@ return new class extends Migration
 
             $table->timestamp('paid_at')->nullable();
             $table->timestamp('failed_at')->nullable();
-            $table->timestamp('refunded_at')->nullable();
 
             $table->text('failure_reason')->nullable();
 

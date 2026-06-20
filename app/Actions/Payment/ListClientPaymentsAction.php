@@ -95,8 +95,6 @@ final class ListClientPaymentsAction
             'rejected',
             'failed',
             'cancelled',
-            'refunded',
-            'partially_refunded',
         ], true);
 
         return new ClientPaymentMovementData(
@@ -136,7 +134,6 @@ final class ListClientPaymentsAction
             failedAt: $payment->failed_at,
             cancelledAt: null,
             expiresAt: null,
-            refundedAt: $payment->refunded_at,
         );
     }
 
@@ -206,7 +203,6 @@ final class ListClientPaymentsAction
             failedAt: $intent->failed_at,
             cancelledAt: $intent->cancelled_at,
             expiresAt: $intent->expires_at,
-            refundedAt: null,
         );
     }
 
@@ -345,7 +341,6 @@ final class ListClientPaymentsAction
                 : 'Fallido',
             'cancelled' => 'Cancelado',
             'expired' => 'Expirado',
-            'refunded', 'partially_refunded' => 'Reembolsado',
             default => strtolower((string) $providerStatus) === 'denied'
                 ? 'Fallido'
                 : 'Desconocido',
