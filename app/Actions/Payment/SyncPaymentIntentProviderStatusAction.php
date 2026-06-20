@@ -55,6 +55,7 @@ final readonly class SyncPaymentIntentProviderStatusAction
 
         $providerStatus = match ($intent->provider) {
             PaymentProvider::MercadoPago => $this->syncMercadoPago($intent),
+            PaymentProvider::PayPal => $this->syncPayPal($intent),
             default => throw new ApiException(
                 error: 'PaymentProviderSyncNotSupported',
                 message: 'Este proveedor no soporta sincronización manual.',
@@ -157,5 +158,28 @@ final readonly class SyncPaymentIntentProviderStatusAction
                 status: Response::HTTP_CONFLICT,
             );
         }
+    }
+
+    private function syncPayPal(PaymentIntent $intent): ProviderPaymentStatus
+    {
+        $gateway = $this->providers->driver(PaymentProvider::PayPal);
+
+        if (! $gateway instanceof PayPalPaymentProvider) {
+            throw new ApiException(
+                error: 'PaymentProviderMisconfigured',
+                message: 'PayPal no está configurado correctamente.',
+                status: Response::HTTP_SERVICE_UNAVAILABLE,
+            );
+        }
+
+        if (! is_string($intent->provider_reference) || $intent->provider_reference === '') {
+            throw new ApiException(
+                error: 'PayPalOrderIdMissing',
+                message: 'La intención de pago no tiene una orden PayPal asociada.',
+                status: Response::HTTP_UNPROCESSABLE_ENTITY,
+            );
+        }
+
+        return $gateway->captureOrder($intent->provider_reference);
     }
 }
