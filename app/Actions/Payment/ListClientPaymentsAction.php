@@ -6,12 +6,17 @@ use App\DTOs\Payment\ClientPaymentMovementData;
 use App\Models\Payment\Payment;
 use App\Models\Payment\PaymentIntent;
 use App\Models\User\User;
+use App\Services\Payment\BookingPaymentEligibility;
 use Carbon\CarbonImmutable;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 
 final class ListClientPaymentsAction
 {
+    public function __construct(
+        private readonly BookingPaymentEligibility $bookingPaymentEligibility,
+    ) {}
+
     /**
      * The history is intentionally normalized in PHP rather than with a SQL
      * UNION: payments and intents have different lifecycle columns, and a
@@ -153,6 +158,8 @@ final class ListClientPaymentsAction
         $providerReference = $intent->provider_reference
             ?? data_get($metadata, 'paypal_order_id')
             ?? data_get($metadata, 'order_id');
+        $canActOnBooking = $intent->booking === null
+            || $this->bookingPaymentEligibility->canStartOrContinuePayment($intent->booking);
 
         return new ClientPaymentMovementData(
             id: (string) $intent->id,
@@ -162,8 +169,10 @@ final class ListClientPaymentsAction
             isFinal: $isFinal,
             isSuccessful: $isSuccessful,
             isPending: ! $isFinal,
-            canRetry: in_array($status, ['failed', 'cancelled', 'expired'], true),
-            canContinueCheckout: $status === 'checkout_created'
+            canRetry: $canActOnBooking
+                && in_array($status, ['failed', 'cancelled', 'expired'], true),
+            canContinueCheckout: $canActOnBooking
+                && $status === 'checkout_created'
                 && is_string($intent->checkout_url)
                 && $intent->checkout_url !== '',
             canViewBooking: $intent->booking_id !== null,
@@ -184,7 +193,7 @@ final class ListClientPaymentsAction
             clientPackageId: null,
             clientId: $intent->client_id,
             professionalId: $intent->professional_id,
-            checkoutUrl: $intent->checkout_url,
+            checkoutUrl: $canActOnBooking ? $intent->checkout_url : null,
             booking: $this->bookingData($intent->booking),
             packageProduct: $this->packageProductData($intent->packageProduct),
             clientPackage: null,

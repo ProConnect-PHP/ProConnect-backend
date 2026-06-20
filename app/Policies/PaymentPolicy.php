@@ -12,4 +12,9 @@ class PaymentPolicy
         return $payment->client_id === $user->id
             || $user->professionalProfile?->id === $payment->professional_id;
     }
+
+    public function viewAsClient(User $user, Payment $payment): bool
+    {
+        return $payment->client_id === $user->id;
+    }
 }

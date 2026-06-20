@@ -25,6 +25,7 @@ use App\Http\Controllers\Package\PublicPackageProductController;
 use App\Http\Controllers\Password\ResetPasswordController;
 use App\Http\Controllers\Payment\BookingPaymentIntentController;
 use App\Http\Controllers\Payment\ClientPaymentController;
+use App\Http\Controllers\Payment\MyPaymentController;
 use App\Http\Controllers\Payment\PaymentCaptureController;
 use App\Http\Controllers\Payment\PaymentCheckoutController;
 use App\Http\Controllers\Payment\PaymentIntentController;
@@ -209,6 +210,8 @@ Route::prefix('v1')->group(function (): void {
             Route::get('/video-sessions/my', [MyVideoSessionController::class, 'index']);
 
             Route::get('/payments/my', [ClientPaymentController::class, 'index']);
+            Route::get('/me/payments', [MyPaymentController::class, 'index']);
+            Route::get('/me/payments/{payment}', [MyPaymentController::class, 'show']);
 
             Route::get('/client-packages/my', [MyClientPackageController::class, 'index']);
             Route::get('/client-packages/{clientPackage}', [MyClientPackageController::class, 'show']);
