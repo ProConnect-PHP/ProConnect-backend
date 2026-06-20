@@ -14,7 +14,7 @@ use App\Services\Payment\Providers\MercadoPago\MercadoPagoPaymentProvider;
 use App\Support\ActivityLog\ActivityLogActorMode;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
-
+use App\Models\Payment\Payment;
 final readonly class SyncPaymentIntentProviderStatusAction
 {
     public function __construct(
