@@ -30,8 +30,18 @@ class PaymentIntentResource extends JsonResource
             'failed_at' => $this->failed_at?->toDateTimeString(),
             'cancelled_at' => $this->cancelled_at?->toDateTimeString(),
             'failure_reason' => $this->failure_reason,
-            'payment' => new PaymentResource($this->whenLoaded('payment')),
+
+            'payment' => $this->whenLoaded('payment', function () {
+                return $this->payment
+                    ? new PaymentResource($this->payment)
+                    : null;
+            }),
+
             'booking' => $this->whenLoaded('booking', function () {
+                if (! $this->booking) {
+                    return null;
+                }
+
                 return [
                     'id' => $this->booking->id,
                     'status' => $this->booking->status?->value ?? $this->booking->status,
@@ -40,7 +50,12 @@ class PaymentIntentResource extends JsonResource
                     'service_id' => $this->booking->service_id,
                 ];
             }),
+
             'package_product' => $this->whenLoaded('packageProduct', function () {
+                if (! $this->packageProduct) {
+                    return null;
+                }
+
                 return [
                     'id' => $this->packageProduct->id,
                     'name' => $this->packageProduct->name,
@@ -48,6 +63,7 @@ class PaymentIntentResource extends JsonResource
                     'service_id' => $this->packageProduct->service_id,
                 ];
             }),
+
             'created_at' => $this->created_at?->toDateTimeString(),
         ];
     }
