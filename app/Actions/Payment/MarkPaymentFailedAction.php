@@ -63,7 +63,7 @@ final class MarkPaymentFailedAction
                 'client',
             ]);
 
-            DB::afterCommit(function () use ($intent, $actingAs): void {
+            DB::afterCommit(function () use ($intent,$actingAs,$providerStatus): void {
                 event(new PaymentFailed($intent, $actingAs));
 
                 Log::warning('[PAYMENT INTENT FAILED]', [
