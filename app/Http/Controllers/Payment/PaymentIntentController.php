@@ -3,16 +3,19 @@
 namespace App\Http\Controllers\Payment;
 
 use App\Actions\Payment\CreatePaymentIntentAction;
+use App\Actions\Payment\SyncPaymentIntentProviderStatusAction;
 use App\Enums\Payment\PayableType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Payment\StorePaymentIntentRequest;
 use App\Http\Resources\Payment\PaymentIntentResource;
+use App\Http\Resources\Payment\PaymentResource;
 use App\Models\Booking\Booking;
 use App\Models\Package\PackageProduct;
 use App\Models\Payment\PaymentIntent;
 use App\Services\Payment\PaymentIntentStatusPayload;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Gate;
+use Request;
 use Symfony\Component\HttpFoundation\Response;
 
 class PaymentIntentController extends Controller
@@ -71,6 +74,26 @@ class PaymentIntentController extends Controller
                     'payment.clientPackage',
                 ])
             ),
+        ]);
+    }
+
+    public function sync(
+        PaymentIntent $paymentIntent,
+        Request $request,
+        SyncPaymentIntentProviderStatusAction $action
+    ): JsonResponse {
+        $intent = $action(
+            paymentIntent: $paymentIntent,
+            client: $request->user('user_jwt'),
+        );
+
+        return response()->json([
+            'payment_intent' => new PaymentIntentResource(
+                $intent->loadMissing(['booking', 'packageProduct', 'payment'])
+            ),
+            'payment' => $intent->payment
+                ? new PaymentResource($intent->payment)
+                : null,
         ]);
     }
 }
