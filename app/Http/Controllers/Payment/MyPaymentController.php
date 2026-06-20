@@ -26,7 +26,25 @@ class MyPaymentController extends Controller
             page: $request->integer('page', 1),
         );
 
-        return PaymentHistoryItemResource::collection($payments)->response();
+        return response()->json([
+            'data' => PaymentHistoryItemResource::collection($payments->getCollection())
+                ->resolve($request),
+            'links' => [
+                'first' => $payments->url(1),
+                'last' => $payments->url($payments->lastPage()),
+                'prev' => $payments->previousPageUrl(),
+                'next' => $payments->nextPageUrl(),
+            ],
+            'meta' => [
+                'current_page' => $payments->currentPage(),
+                'from' => $payments->firstItem(),
+                'last_page' => $payments->lastPage(),
+                'path' => $payments->path(),
+                'per_page' => $payments->perPage(),
+                'to' => $payments->lastItem(),
+                'total' => $payments->total(),
+            ],
+        ]);
     }
 
     public function show(

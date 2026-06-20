@@ -45,6 +45,7 @@ class MyPaymentApiTest extends TestCase
 
     public function test_client_lists_rejected_intent_without_payment(): void
     {
+        $this->withoutExceptionHandling();
         $client = User::factory()->create();
         $booking = $this->bookingFor($client, BookingStatus::Confirmed);
         $intent = PaymentIntent::factory()

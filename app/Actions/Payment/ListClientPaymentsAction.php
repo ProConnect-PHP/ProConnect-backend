@@ -356,7 +356,7 @@ final class ListClientPaymentsAction
 
         return [
             'id' => $booking->id,
-            'status' => $booking->status?->value ?? $booking->status,
+            'status' => $this->enumValue($booking->status),
             'starts_at' => $booking->starts_at?->toDateTimeString(),
             'ends_at' => $booking->ends_at?->toDateTimeString(),
             'service_id' => $booking->service_id,
@@ -392,5 +392,18 @@ final class ListClientPaymentsAction
             'total_sessions' => $clientPackage->total_sessions,
             'used_sessions' => $clientPackage->used_sessions,
         ];
+    }
+
+    private function enumValue(mixed $value): ?string
+    {
+        if ($value instanceof \BackedEnum) {
+            return (string) $value->value;
+        }
+
+        if ($value === null) {
+            return null;
+        }
+
+        return (string) $value;
     }
 }
