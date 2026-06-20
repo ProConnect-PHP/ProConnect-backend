@@ -5,8 +5,10 @@ namespace App\Actions\Payment;
 use App\Enums\Payment\PaymentIntentStatus;
 use App\Enums\Payment\PaymentProvider;
 use App\Exceptions\ApiException;
+use App\Models\Booking\Booking;
 use App\Models\Payment\PaymentIntent;
 use App\Models\User\User;
+use App\Services\Payment\BookingPaymentEligibility;
 use App\Services\Payment\PaymentPayloadSanitizer;
 use App\Services\Payment\PaymentProviderManager;
 use App\Support\ActivityLog\ActivityLogActorMode;
@@ -22,6 +24,7 @@ final readonly class CreatePaymentCheckoutAction
         private PaymentProviderManager $providers,
         private PaymentPayloadSanitizer $sanitizer,
         private ActivityLogger $activityLogger,
+        private BookingPaymentEligibility $bookingPaymentEligibility,
     ) {}
 
     public function __invoke(
@@ -45,6 +48,16 @@ final readonly class CreatePaymentCheckoutAction
                     message: 'No puedes crear el checkout de este pago.',
                     status: Response::HTTP_FORBIDDEN,
                 );
+            }
+
+            if ($intent->booking_id !== null) {
+                $booking = Booking::query()
+                    ->whereKey($intent->booking_id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                $this->bookingPaymentEligibility
+                    ->assertCanStartOrContinuePayment($booking);
             }
 
             if ($intent->isExpired() || $intent->status === PaymentIntentStatus::Expired) {

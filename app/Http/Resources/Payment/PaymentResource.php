@@ -38,6 +38,14 @@ class PaymentResource extends JsonResource
                     'service_id' => $this->booking->service_id,
                 ];
             }),
+            'package_product' => $this->whenLoaded('packageProduct', function () {
+                return $this->packageProduct ? [
+                    'id' => $this->packageProduct->id,
+                    'name' => $this->packageProduct->name,
+                    'sessions_count' => $this->packageProduct->sessions_count,
+                    'service_id' => $this->packageProduct->service_id,
+                ] : null;
+            }),
             'client_package' => $this->whenLoaded('clientPackage', function () {
                 return [
                     'id' => $this->clientPackage->id,

@@ -12,6 +12,7 @@ use App\Models\Package\ClientPackage;
 use App\Models\Package\PackageProduct;
 use App\Models\Payment\PaymentIntent;
 use App\Models\User\User;
+use App\Services\Payment\BookingPaymentEligibility;
 use App\Services\Payment\PaymentPayloadSanitizer;
 use App\Support\ActivityLog\ActivityLogActorMode;
 use App\Support\ActivityLog\ActivityLogEvent;
@@ -24,6 +25,7 @@ final readonly class CreatePaymentIntentAction
     public function __construct(
         private ActivityLogger $activityLogger,
         private PaymentPayloadSanitizer $sanitizer,
+        private BookingPaymentEligibility $bookingPaymentEligibility,
     ) {}
 
     public function __invoke(
@@ -78,6 +80,8 @@ final readonly class CreatePaymentIntentAction
                 status: Response::HTTP_FORBIDDEN,
             );
         }
+
+        $this->bookingPaymentEligibility->assertCanStartOrContinuePayment($booking);
 
         if ($booking->status === BookingStatus::Paid || $booking->payment()->exists()) {
             throw new ApiException(
