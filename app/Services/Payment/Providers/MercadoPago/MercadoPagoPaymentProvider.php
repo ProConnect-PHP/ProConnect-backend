@@ -307,4 +307,44 @@ final readonly class MercadoPagoPaymentProvider implements IPaymentProviderGatew
             ?? ''
         );
     }
+
+    public function searchPaymentByExternalReference(string $externalReference): ?ProviderPaymentStatus
+    {
+        $result = $this->client->searchPayments([
+            'external_reference' => $externalReference,
+        ]);
+
+        $payment = collect($result['results'] ?? [])
+            ->sortByDesc(fn (array $payment): string => (string) ($payment['date_created'] ?? ''))
+            ->first();
+
+        if (! is_array($payment)) {
+            return null;
+        }
+
+        return $this->statusFromPayment($payment);
+    }
+
+    private function statusFromPayment(array $payment): ProviderPaymentStatus
+    {
+        return new ProviderPaymentStatus(
+            providerReference: (string) ($payment['external_reference'] ?? ''),
+            status: $this->statusMapper->map((string) ($payment['status'] ?? 'unknown')),
+            rawStatus: (string) ($payment['status'] ?? 'unknown'),
+            providerPaymentId: isset($payment['id']) ? (string) $payment['id'] : null,
+            paymentIntentId: isset($payment['external_reference'])
+                ? (string) $payment['external_reference']
+                : null,
+            paidAt: $payment['date_approved'] ?? $payment['date_created'] ?? null,
+            amount: $payment['transaction_amount'] ?? null,
+            currency: $payment['currency_id'] ?? null,
+            metadata: [
+                'mercadopago_payment_id' => $payment['id'] ?? null,
+                'mercadopago_status' => $payment['status'] ?? null,
+                'mercadopago_status_detail' => $payment['status_detail'] ?? null,
+                'mercadopago_operation_type' => $payment['operation_type'] ?? null,
+                'mercadopago_collector_id' => $payment['collector_id'] ?? null,
+            ],
+        );
+    }
 }

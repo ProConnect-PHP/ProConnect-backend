@@ -265,4 +265,11 @@ final class MercadoPagoClient
             ],
         );
     }
+
+    public function searchPayments(array $filters): array
+    {
+        return $this->request('GET', '/v1/payments/search', [
+            'query' => $filters,
+        ]);
+    }
 }

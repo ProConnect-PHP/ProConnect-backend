@@ -24,8 +24,8 @@ use App\Http\Controllers\Package\ProfessionalSoldPackageController;
 use App\Http\Controllers\Package\PublicPackageProductController;
 use App\Http\Controllers\Password\ResetPasswordController;
 use App\Http\Controllers\Payment\BookingPaymentIntentController;
-use App\Http\Controllers\Payment\PaymentCaptureController;
 use App\Http\Controllers\Payment\ClientPaymentController;
+use App\Http\Controllers\Payment\PaymentCaptureController;
 use App\Http\Controllers\Payment\PaymentCheckoutController;
 use App\Http\Controllers\Payment\PaymentIntentController;
 use App\Http\Controllers\Payment\PaymentSimulationController;
@@ -235,6 +235,9 @@ Route::prefix('v1')->group(function (): void {
             Route::post('/payment-intents/{paymentIntent}/simulate-failure', [PaymentSimulationController::class, 'failure']);
 
             Route::post('/package-products/{packageProduct}/purchase', [PackagePurchaseController::class, 'store']);
+            Route::post('/payment-intents/{paymentIntent}/sync-provider-status',
+                [PaymentIntentController::class, 'sync']
+            )->middleware(['auth:user_jwt', 'throttle:payment-actions']);
         });
 
         /*
