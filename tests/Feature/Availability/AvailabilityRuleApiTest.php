@@ -124,8 +124,8 @@ class AvailabilityRuleApiTest extends TestCase
             ->assertOk()
             ->assertJsonStructure(['message']);
 
-        $this->assertSoftDeleted('availability_rules', [
-            'id' => $rule->id,
+        $this->assertDatabaseMissing('availability_exceptions', [
+            'id' => $exception->id,
         ]);
     }
 
