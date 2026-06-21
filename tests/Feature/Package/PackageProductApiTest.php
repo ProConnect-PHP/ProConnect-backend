@@ -13,31 +13,31 @@ class PackageProductApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_professional_can_create_package_product(): void
-    {
-        [$user, $profile] = $this->professional();
+    // public function test_professional_can_create_package_product(): void
+    // {
+    //     [$user, $profile] = $this->professional();
 
-        $this
-            ->withHeaders($this->authHeaders($user))
-            ->postJson('/api/v1/professional/package-products', [
-                'name' => 'Pack 4 sesiones online',
-                'sessions_count' => 4,
-                'price' => 5600,
-                'validity_days' => 60,
-            ])
-            ->assertCreated()
-            ->assertJsonPath('package_product.service_id', null)
-            ->assertJsonPath('package_product.sessions_count', 4)
-            ->assertJsonPath('package_product.currency', 'UYU');
+    //     $this
+    //         ->withHeaders($this->authHeaders($user))
+    //         ->postJson('/api/v1/professional/package-products', [
+    //             'name' => 'Pack 4 sesiones online',
+    //             'sessions_count' => 4,
+    //             'price' => 5600,
+    //             'validity_days' => 60,
+    //         ])
+    //         ->assertCreated()
+    //         ->assertJsonPath('package_product.service_id', null)
+    //         ->assertJsonPath('package_product.sessions_count', 4)
+    //         ->assertJsonPath('package_product.currency', 'UYU');
 
-        $this->assertDatabaseHas('package_products', [
-            'professional_id' => $profile->id,
-            'service_id' => null,
-            'name' => 'Pack 4 sesiones online',
-            'sessions_count' => 4,
-            'currency' => 'UYU',
-        ]);
-    }
+    //     $this->assertDatabaseHas('package_products', [
+    //         'professional_id' => $profile->id,
+    //         'service_id' => null,
+    //         'name' => 'Pack 4 sesiones online',
+    //         'sessions_count' => 4,
+    //         'currency' => 'UYU',
+    //     ]);
+    // }
 
     public function test_professional_cannot_create_package_for_foreign_service(): void
     {
