@@ -169,7 +169,7 @@ jobs:
         run: php artisan migrate --force
 
       - name: Run tests
-        run: composer test
+        run: php artisan test
 
   build_and_push:
     name: Build + push image
