@@ -169,7 +169,7 @@ jobs:
         run: php artisan migrate --force
 
       - name: Run tests
-        run: php -d memory_limit=1G artisan test
+        run: composer test
 
   build_and_push:
     name: Build + push image
