@@ -25,6 +25,8 @@ class CompleteBookingApiTest extends TestCase
     {
         parent::setUp();
 
+        config()->set('queue.default', 'sync');
+
         Carbon::setTestNow('2026-06-01 12:00:00');
     }
 
@@ -258,11 +260,17 @@ class CompleteBookingApiTest extends TestCase
 
     private function assertCannotComplete(User $professional, Booking $booking): void
     {
+        $originalStatus = $booking->refresh()->status;
+        $originalCompletedAt = $booking->completed_at;
+
         $this->complete($professional, $booking)
             ->assertUnprocessable()
             ->assertJsonPath('error.type', 'BookingCannotBeCompleted');
 
-        $this->assertNotSame(BookingStatus::Completed, $booking->refresh()->status);
+        $booking->refresh();
+
+        $this->assertSame($originalStatus, $booking->status);
+        $this->assertEquals($originalCompletedAt, $booking->completed_at);
     }
 
     private function bookingScenario(BookingStatus $status, array $overrides = []): array
