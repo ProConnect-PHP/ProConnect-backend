@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Booking;
 
 use App\Actions\Booking\ConfirmBookingAction;
+use App\Actions\Booking\CompleteBookingAction;
 use App\Actions\Booking\ListProfessionalBookingsAction;
 use App\Exceptions\ApiException;
 use App\Http\Controllers\Controller;
@@ -40,6 +41,21 @@ class ProfessionalBookingController extends Controller
         return response()->json([
             'message' => 'Reserva confirmada correctamente',
             'booking' => new BookingResource($action($booking)),
+        ]);
+    }
+
+    public function complete(
+        Booking $booking,
+        CompleteBookingAction $action
+    ): JsonResponse {
+        Gate::authorize('complete', $booking);
+
+        /** @var \App\Models\User\User $actor */
+        $actor = auth('user_jwt')->user();
+
+        return response()->json([
+            'data' => new BookingResource($action($booking, $actor)),
+            'message' => 'Booking completed successfully.',
         ]);
     }
 }

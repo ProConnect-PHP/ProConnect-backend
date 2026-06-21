@@ -28,6 +28,7 @@ enum ActivityLogEvent: string
 
     case BookingCreated = 'booking.created';
     case BookingConfirmed = 'booking.confirmed';
+    case BookingCompleted = 'booking.completed';
     case BookingPaid = 'booking.paid';
     case BookingCancelled = 'booking.cancelled';
     case BookingRescheduled = 'booking.rescheduled';

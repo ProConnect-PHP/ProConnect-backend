@@ -390,6 +390,7 @@ Route::prefix('v1')->group(function (): void {
 
         Route::middleware(['role:professional', 'verified.email', 'throttle:booking-write'])->group(function (): void {
             Route::post('/bookings/{booking}/confirm', [ProfessionalBookingController::class, 'confirm']);
+            Route::post('/professional/bookings/{booking}/complete', [ProfessionalBookingController::class, 'complete']);
         });
 
         /*

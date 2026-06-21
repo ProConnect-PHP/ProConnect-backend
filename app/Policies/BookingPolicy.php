@@ -24,6 +24,11 @@ class BookingPolicy
         return $this->isProfessionalOwner($user, $booking);
     }
 
+    public function complete(User $user, Booking $booking): bool
+    {
+        return $this->isProfessionalOwner($user, $booking);
+    }
+
     public function reschedule(User $user, Booking $booking): bool
     {
         return $this->isClient($user, $booking)
