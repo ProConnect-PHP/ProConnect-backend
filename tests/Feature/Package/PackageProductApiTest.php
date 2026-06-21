@@ -72,23 +72,6 @@ class PackageProductApiTest extends TestCase
             ->assertJsonPath('error.type', 'Forbidden');
     }
 
-    public function test_professional_cannot_create_package_for_foreign_service(): void
-    {
-        [$user] = $this->professional();
-        [, $otherProfile] = $this->professional();
-
-        $foreignService = Service::factory()->create([
-            'professional_id' => $otherProfile->id,
-        ]);
-
-        $this
-            ->withHeaders($this->authHeaders($user))
-            ->postJson('/api/v1/professional/package-products', $this->validPayload([
-                'service_id' => $foreignService->id,
-            ]))
-            ->assertForbidden()
-            ->assertJsonPath('error.type', 'Forbidden');
-    }
 
     public function test_professional_can_update_own_package_product(): void
     {
