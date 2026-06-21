@@ -16,29 +16,49 @@ class PackageProductApiTest extends TestCase
     public function test_professional_can_create_package_product(): void
     {
         [$user, $profile] = $this->professional();
-        $service = Service::factory()->create([
-            'professional_id' => $profile->id,
-        ]);
 
         $this
             ->withHeaders($this->authHeaders($user))
-            ->postJson('/api/v1/professional/package-products', $this->validPayload([
-                'service_id' => $service->id,
-            ]))
+            ->postJson('/api/v1/professional/package-products', [
+                'name' => 'Pack 4 sesiones online',
+                'sessions_count' => 4,
+                'price' => 5600,
+                'validity_days' => 60,
+            ])
             ->assertCreated()
-            ->assertJsonPath('package_product.service_id', $service->id)
+            ->assertJsonPath('package_product.service_id', null)
             ->assertJsonPath('package_product.sessions_count', 4)
-            ->assertJsonPath('package_product.price', 5600)
             ->assertJsonPath('package_product.currency', 'UYU');
 
         $this->assertDatabaseHas('package_products', [
             'professional_id' => $profile->id,
-            'service_id' => $service->id,
+            'service_id' => null,
             'name' => 'Pack 4 sesiones online',
             'sessions_count' => 4,
-            'price' => 5600,
             'currency' => 'UYU',
         ]);
+    }
+
+    public function test_professional_cannot_create_package_for_foreign_service(): void
+    {
+        [$user] = $this->professional();
+        [, $otherProfile] = $this->professional();
+
+        $foreignService = Service::factory()->create([
+            'professional_id' => $otherProfile->id,
+        ]);
+
+        $this
+            ->withHeaders($this->authHeaders($user))
+            ->postJson('/api/v1/professional/package-products', [
+                'service_id' => $foreignService->id,
+                'name' => 'Pack ajeno',
+                'sessions_count' => 4,
+                'price' => 5600,
+                'validity_days' => 60,
+            ])
+            ->assertForbidden()
+            ->assertJsonPath('error.type', 'Forbidden');
     }
 
     public function test_client_cannot_create_package_product(): void
