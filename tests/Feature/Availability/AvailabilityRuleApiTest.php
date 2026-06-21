@@ -111,7 +111,9 @@ class AvailabilityRuleApiTest extends TestCase
     public function test_owner_can_delete_rule(): void
     {
         [$user, $profile] = $this->createProfessionalUser();
+
         $service = $this->createServiceForProfile($profile);
+
         $rule = AvailabilityRule::factory()->create([
             'service_id' => $service->id,
         ]);
@@ -124,8 +126,8 @@ class AvailabilityRuleApiTest extends TestCase
             ->assertOk()
             ->assertJsonStructure(['message']);
 
-        $this->assertDatabaseMissing('availability_exceptions', [
-            'id' => $exception->id,
+        $this->assertDatabaseMissing('availability_rules', [
+            'id' => $rule->id,
         ]);
     }
 
@@ -184,7 +186,9 @@ class AvailabilityRuleApiTest extends TestCase
     {
         [, $ownerProfile] = $this->createProfessionalUser();
         [$otherUser] = $this->createProfessionalUser();
+
         $service = $this->createServiceForProfile($ownerProfile);
+
         $rule = AvailabilityRule::factory()->create([
             'service_id' => $service->id,
         ]);
@@ -197,7 +201,7 @@ class AvailabilityRuleApiTest extends TestCase
             ->assertForbidden()
             ->assertJsonPath('error.type', 'Forbidden');
 
-        $this->assertNotSoftDeleted('availability_rules', [
+        $this->assertDatabaseHas('availability_rules', [
             'id' => $rule->id,
         ]);
     }
