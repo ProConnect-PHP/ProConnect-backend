@@ -145,6 +145,17 @@ class Booking extends Model
         ], true) && $this->starts_at?->isFuture();
     }
 
+    public function isCompletable(): bool
+    {
+        return in_array($this->status, [
+            BookingStatus::Confirmed,
+            BookingStatus::Paid,
+            BookingStatus::InProgress,
+        ], true)
+            && $this->starts_at !== null
+            && $this->starts_at->lessThanOrEqualTo(now());
+    }
+
     public function isVideoEligible(): bool
     {
         return in_array($this->modality, ['remota', 'hibrida'], true);

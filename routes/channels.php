@@ -13,3 +13,10 @@ Broadcast::channel('notifications.{id}', function ($user, $id) {
     return (string) $user->id === (string) $id;
 });
 
+Broadcast::channel('bookings.client.{clientId}', function ($user, $clientId) {
+    return (string) $user->id === (string) $clientId;
+});
+
+Broadcast::channel('bookings.professional.{professionalId}', function ($user, $professionalId) {
+    return (string) $user->professionalProfile?->id === (string) $professionalId;
+});

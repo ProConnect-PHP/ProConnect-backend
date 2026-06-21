@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Contracts\Auth\IOAuthExchangeCodeStore;
 use App\Contracts\Auth\IOAuthIdentityProvider;
 use App\Events\Booking\BookingCancelled;
+use App\Events\Booking\BookingCompleted;
 use App\Events\Booking\BookingConfirmed;
 use App\Events\Booking\BookingCreated;
 use App\Events\Booking\BookingRescheduled;
@@ -205,11 +206,11 @@ class AppServiceProvider extends ServiceProvider
             PackageSessionReserved::class,
             SendPackageSessionReservedNotifications::class
         );
-
         foreach ([
             BookingCreated::class,
             BookingConfirmed::class,
             BookingCancelled::class,
+            BookingCompleted::class,
             BookingRescheduled::class,
             PaymentSucceeded::class,
             PaymentFailed::class,

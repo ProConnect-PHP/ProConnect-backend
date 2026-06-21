@@ -6,6 +6,7 @@ use App\Enums\Booking\BookingStatus;
 use App\Models\Availability\AvailabilityRule;
 use App\Models\Booking\Booking;
 use App\Models\Service\Service;
+use App\Models\User\ProfessionalProfile;
 use App\Models\User\User;
 use App\Support\ActivityLog\ActivityLogEvent;
 use Carbon\Carbon;
@@ -90,6 +91,42 @@ class BookingActivityLogTest extends TestCase
         $this->assertSame('pending', $log->metadata['previous_status']);
         $this->assertSame('cancelled', $log->metadata['new_status']);
         $this->assertSame('Cambio de agenda', $log->metadata['reason']);
+    }
+
+    public function test_booking_completion_creates_activity_log(): void
+    {
+        $professional = User::factory()->professional()->create();
+        $profile = ProfessionalProfile::factory()->create([
+            'user_id' => $professional->id,
+        ]);
+        $client = User::factory()->create();
+        $service = Service::factory()->create([
+            'professional_id' => $profile->id,
+        ]);
+        $booking = Booking::factory()->create([
+            'service_id' => $service->id,
+            'professional_id' => $profile->id,
+            'client_id' => $client->id,
+            'status' => BookingStatus::Confirmed,
+            'starts_at' => now()->subHour(),
+            'ends_at' => now(),
+            'confirmed_at' => now()->subDay(),
+        ]);
+
+        $this
+            ->withHeaders($this->authHeaders($professional))
+            ->postJson("/api/v1/professional/bookings/{$booking->id}/complete")
+            ->assertOk();
+
+        $log = $this->activityLog(ActivityLogEvent::BookingCompleted->value);
+
+        $this->assertNotNull($log);
+        $this->assertSame($booking->id, $log->entity_id);
+        $this->assertSame('confirmed', $log->metadata['previous_status']);
+        $this->assertSame('completed', $log->metadata['new_status']);
+        $this->assertSame($professional->id, $log->metadata['actor_id']);
+        $this->assertSame('professional', $log->metadata['actor_role']);
+        $this->assertNotNull($log->metadata['completed_at']);
     }
 
     private function authHeaders(User $user): array

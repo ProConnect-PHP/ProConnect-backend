@@ -1,3 +1,4 @@
+
 <?php
 
 namespace App\Actions\Package;
@@ -28,7 +29,7 @@ class CreatePackageProductAction
             'description' => $data['description'] ?? null,
             'sessions_count' => $data['sessions_count'],
             'price' => $data['price'],
-            'currency' => $data['currency'] ?? config('proconnect.payments.currency', 'UYU'),
+            'currency' => 'UYU',
             'validity_days' => $data['validity_days'] ?? null,
             'is_active' => $data['is_active'] ?? true,
         ])->load(['service', 'professional.user']);

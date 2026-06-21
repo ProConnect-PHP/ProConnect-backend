@@ -3,6 +3,7 @@
 namespace App\Listeners\ActivityLog;
 
 use App\Events\Booking\BookingCancelled;
+use App\Events\Booking\BookingCompleted;
 use App\Events\Booking\BookingConfirmed;
 use App\Events\Booking\BookingCreated;
 use App\Events\Booking\BookingRescheduled;
@@ -34,6 +35,7 @@ final readonly class LogDomainActivity
             $event instanceof BookingCreated => $this->bookingCreated($event),
             $event instanceof BookingConfirmed => $this->bookingConfirmed($event),
             $event instanceof BookingCancelled => $this->bookingCancelled($event),
+            $event instanceof BookingCompleted => $this->bookingCompleted($event),
             $event instanceof BookingRescheduled => $this->bookingRescheduled($event),
             $event instanceof PaymentSucceeded => $this->paymentSucceeded($event),
             $event instanceof PaymentFailed => $this->paymentFailed($event),
@@ -102,6 +104,28 @@ final readonly class LogDomainActivity
             actingAs: $event->actor?->id === $booking->client_id
                 ? ActivityLogActorMode::Client
                 : ActivityLogActorMode::Professional,
+        );
+    }
+
+    private function bookingCompleted(BookingCompleted $event): void
+    {
+        $booking = $event->booking;
+
+        $this->activityLogger->record(
+            event: ActivityLogEvent::BookingCompleted,
+            entityType: 'booking',
+            entityId: $booking->id,
+            entityOwnerId: $booking->professional_id,
+            metadata: [
+                ...$this->bookingMetadata($booking),
+                'previous_status' => $event->previousStatus,
+                'new_status' => $booking->status,
+                'completed_at' => $booking->completed_at,
+                'actor_id' => $event->actor->id,
+                'actor_role' => $event->actor->role,
+            ],
+            actor: $event->actor,
+            actingAs: ActivityLogActorMode::Professional,
         );
     }
 
