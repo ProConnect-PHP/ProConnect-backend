@@ -764,15 +764,7 @@ php artisan demo:refresh --fresh
 
 ## Usuarios demo
 
-| Rol | Email | Contraseña | Nombre |
-|-----|-------|-----------|--------|
-| **Cliente** | `cliente@proconnect.test` | `password123` | Cliente Demo |
-| **Cliente** | `cliente2@proconnect.test` | `password123` | Cliente Secundario |
-| **Cliente** | `cliente3@proconnect.test` | `password123` | Cliente Tercero |
-| **Psicóloga** | `psicologa@proconnect.test` | `password123` | Dra. Valentina Acosta |
-| **Coach** | `coach@proconnect.test` | `password123` | Mateo Ferreira |
-| **Nutricionista** | `nutricionista@proconnect.test` | `password123` | Lucía Benítez |
-| **Consultor** | `consultor@proconnect.test` | `password123` | Santiago Moreira |
+
 
 ## Servicios incluidos
 
