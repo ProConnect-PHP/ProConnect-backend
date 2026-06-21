@@ -157,7 +157,7 @@ class AvailabilityExceptionApiTest extends TestCase
             ->assertOk()
             ->assertJsonStructure(['message']);
 
-        $this->assertSoftDeleted('availability_exceptions', [
+        $this->assertDatabaseMissing('availability_exceptions', [
             'id' => $exception->id,
         ]);
     }
@@ -216,7 +216,9 @@ class AvailabilityExceptionApiTest extends TestCase
     {
         [, $ownerProfile] = $this->createProfessionalUser();
         [$otherUser] = $this->createProfessionalUser();
+
         $service = $this->createServiceForProfile($ownerProfile);
+
         $exception = AvailabilityException::factory()->create([
             'service_id' => $service->id,
         ]);
@@ -229,7 +231,7 @@ class AvailabilityExceptionApiTest extends TestCase
             ->assertForbidden()
             ->assertJsonPath('error.type', 'Forbidden');
 
-        $this->assertNotSoftDeleted('availability_exceptions', [
+        $this->assertDatabaseHas('availability_exceptions', [
             'id' => $exception->id,
         ]);
     }

@@ -28,7 +28,6 @@ return new class extends Migration
             $table->string('reason')->nullable();
 
             $table->timestamps();
-            $table->softDeletes();
             $table->unique(['service_id', 'exception_date']);
         });
         }
