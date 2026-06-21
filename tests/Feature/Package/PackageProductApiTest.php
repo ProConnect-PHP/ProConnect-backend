@@ -15,26 +15,30 @@ class PackageProductApiTest extends TestCase
 
     public function test_professional_can_create_package_product(): void
     {
-        [$professionalUser, $profile] = $this->professionalWithProfile();
+        [$user, $profile] = $this->professional();
         $service = Service::factory()->create([
             'professional_id' => $profile->id,
         ]);
 
-        $response = $this
-            ->withHeaders($this->authHeaders($professionalUser))
-            ->postJson('/api/v1/professional/package-products', [
+        $this
+            ->withHeaders($this->authHeaders($user))
+            ->postJson('/api/v1/professional/package-products', $this->validPayload([
                 'service_id' => $service->id,
-                'name' => 'Pack 4 sesiones online',
-                'sessions_count' => 4,
-                'price' => 5600,
-                'validity_days' => 60,
-            ]);
-
-        $response
+            ]))
             ->assertCreated()
             ->assertJsonPath('package_product.service_id', $service->id)
             ->assertJsonPath('package_product.sessions_count', 4)
-            ->assertJsonPath('package_product.price', 5600);
+            ->assertJsonPath('package_product.price', 5600)
+            ->assertJsonPath('package_product.currency', 'UYU');
+
+        $this->assertDatabaseHas('package_products', [
+            'professional_id' => $profile->id,
+            'service_id' => $service->id,
+            'name' => 'Pack 4 sesiones online',
+            'sessions_count' => 4,
+            'price' => 5600,
+            'currency' => 'UYU',
+        ]);
     }
 
     public function test_client_cannot_create_package_product(): void
@@ -43,45 +47,41 @@ class PackageProductApiTest extends TestCase
 
         $this
             ->withHeaders($this->authHeaders($client))
-            ->postJson('/api/v1/professional/package-products', [
-                'name' => 'Pack 4 sesiones online',
-                'sessions_count' => 4,
-                'price' => 5600,
-            ])
+            ->postJson('/api/v1/professional/package-products', $this->validPayload())
             ->assertForbidden()
             ->assertJsonPath('error.type', 'Forbidden');
     }
 
-    public function test_professional_cannot_create_package_for_another_professionals_service(): void
+    public function test_professional_cannot_create_package_for_foreign_service(): void
     {
-        [$professionalUser] = $this->professionalWithProfile();
-        [, $otherProfile] = $this->professionalWithProfile();
-        $service = Service::factory()->create([
+        [$user] = $this->professional();
+        [, $otherProfile] = $this->professional();
+
+        $foreignService = Service::factory()->create([
             'professional_id' => $otherProfile->id,
         ]);
 
         $this
-            ->withHeaders($this->authHeaders($professionalUser))
-            ->postJson('/api/v1/professional/package-products', [
-                'service_id' => $service->id,
-                'name' => 'Pack ajeno',
-                'sessions_count' => 4,
-                'price' => 5600,
-            ])
+            ->withHeaders($this->authHeaders($user))
+            ->postJson('/api/v1/professional/package-products', $this->validPayload([
+                'service_id' => $foreignService->id,
+            ]))
             ->assertForbidden()
             ->assertJsonPath('error.type', 'Forbidden');
     }
 
     public function test_professional_can_update_own_package_product(): void
     {
-        [$professionalUser, $profile] = $this->professionalWithProfile();
+        [$user, $profile] = $this->professional();
+
         $packageProduct = PackageProduct::factory()->create([
             'professional_id' => $profile->id,
             'name' => 'Pack viejo',
+            'is_active' => true,
         ]);
 
         $this
-            ->withHeaders($this->authHeaders($professionalUser))
+            ->withHeaders($this->authHeaders($user))
             ->putJson("/api/v1/professional/package-products/{$packageProduct->id}", [
                 'name' => 'Pack actualizado',
                 'is_active' => false,
@@ -89,18 +89,25 @@ class PackageProductApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('package_product.name', 'Pack actualizado')
             ->assertJsonPath('package_product.is_active', false);
+
+        $this->assertDatabaseHas('package_products', [
+            'id' => $packageProduct->id,
+            'name' => 'Pack actualizado',
+            'is_active' => false,
+        ]);
     }
 
-    public function test_professional_cannot_update_another_professionals_package(): void
+    public function test_professional_cannot_update_foreign_package_product(): void
     {
-        [$professionalUser] = $this->professionalWithProfile();
-        [, $otherProfile] = $this->professionalWithProfile();
+        [$user] = $this->professional();
+        [, $otherProfile] = $this->professional();
+
         $packageProduct = PackageProduct::factory()->create([
             'professional_id' => $otherProfile->id,
         ]);
 
         $this
-            ->withHeaders($this->authHeaders($professionalUser))
+            ->withHeaders($this->authHeaders($user))
             ->putJson("/api/v1/professional/package-products/{$packageProduct->id}", [
                 'name' => 'Intento ajeno',
             ])
@@ -110,13 +117,14 @@ class PackageProductApiTest extends TestCase
 
     public function test_professional_can_delete_own_package_product(): void
     {
-        [$professionalUser, $profile] = $this->professionalWithProfile();
+        [$user, $profile] = $this->professional();
+
         $packageProduct = PackageProduct::factory()->create([
             'professional_id' => $profile->id,
         ]);
 
         $this
-            ->withHeaders($this->authHeaders($professionalUser))
+            ->withHeaders($this->authHeaders($user))
             ->deleteJson("/api/v1/professional/package-products/{$packageProduct->id}")
             ->assertOk();
 
@@ -127,22 +135,22 @@ class PackageProductApiTest extends TestCase
 
     public function test_sessions_count_and_price_are_validated(): void
     {
-        [$professionalUser] = $this->professionalWithProfile();
+        [$user] = $this->professional();
 
         $this
-            ->withHeaders($this->authHeaders($professionalUser))
-            ->postJson('/api/v1/professional/package-products', [
-                'name' => 'Pack invalido',
+            ->withHeaders($this->authHeaders($user))
+            ->postJson('/api/v1/professional/package-products', $this->validPayload([
                 'sessions_count' => 0,
                 'price' => -1,
-            ])
+            ]))
             ->assertUnprocessable()
             ->assertJsonPath('error.type', 'ValidationError');
     }
 
-    private function professionalWithProfile(): array
+    private function professional(): array
     {
         $user = User::factory()->professional()->create();
+
         $profile = ProfessionalProfile::factory()->create([
             'user_id' => $user->id,
         ]);
@@ -150,12 +158,22 @@ class PackageProductApiTest extends TestCase
         return [$user, $profile];
     }
 
+    private function validPayload(array $overrides = []): array
+    {
+        return [
+            'service_id' => null,
+            'name' => 'Pack 4 sesiones online',
+            'sessions_count' => 4,
+            'price' => 5600,
+            'validity_days' => 60,
+            ...$overrides,
+        ];
+    }
+
     private function authHeaders(User $user): array
     {
-        $token = auth('user_jwt')->login($user);
-
         return [
-            'Authorization' => 'Bearer '.$token,
+            'Authorization' => 'Bearer '.auth('user_jwt')->login($user),
             'Accept' => 'application/json',
         ];
     }
